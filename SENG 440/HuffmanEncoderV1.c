@@ -23,21 +23,27 @@ int main(){
 
     file = fopen("alphabet.txt","r");
 
-    if (file == NULL){
+    if (file == NULL)
+    {
         printf("Failed to open the file");
         return 1;
     }
 
     // Read and print each line of the file
-    while (fgets(alphabet_input, MAX_LENGTH, file) != NULL) {
+    while (fgets(alphabet_input, MAX_LENGTH, file) != NULL) 
+    {
         printf("Line being read: \"%s\"", alphabet_input);
 
         // Each line gets parsed and put into a nice data structure
         int i = 0;
-        while(alphabet_input[i] != '\0'){
-            if(isalpha(alphabet_input[i])){
+        while(alphabet_input[i] != '\0')
+        {
+            if(isalpha(alphabet_input[i]))
+            {
                 alpha_cell.character = alphabet_input[i];
-            } else if (isdigit(alphabet_input[i])){
+            } 
+            else if (isdigit(alphabet_input[i]))
+            {
                 alpha_cell.probability = alphabet_input[i];
             }
         }
