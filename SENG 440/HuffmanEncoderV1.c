@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <ctype.h>
 
 //define some constants used in the program
@@ -46,13 +47,15 @@ int main(){
             {
                 alpha_cell.probability = alphabet_input[i];
             }
+            i++;
         }
 
 
     }
-    printf("\n");
+    printf("All lines read\n");
 
-
+    //Test printing out of the data struct - FAILS HERE
+    printf("Index Number [%d] character: [%s] probability: [%f]\n", 1, alpha_cell.character, alpha_cell.probability);
 
 
     // Close the file
