@@ -18,8 +18,8 @@ int parseAlphaProb(alphaCell* alphaList, FILE* fp){
     char alphabet_input[MAX_FILE_LENGTH];
     fgets(alphabet_input, MAX_FILE_LENGTH, fp);
 
-    // Acquire first token from input; Splits on , and / as delimiters 
-    char *tokInput = strtok(alphabet_input, ",/");
+    // Acquire first token from input; Splits on , and / and ' ' as delimiters
+    char *tokInput = strtok(alphabet_input, ",/ ");
     alphaCell curCell;
     int i = 0;
 
@@ -27,14 +27,20 @@ int parseAlphaProb(alphaCell* alphaList, FILE* fp){
     while (tokInput){
         if(isalpha(*tokInput)) {
             curCell.character = *tokInput;
-            tokInput = strtok(NULL, ",/");
+            tokInput = strtok(NULL, ",/ ");
             curCell.probability = atof(tokInput);
 
             alphaList[i] = curCell;
+
             i++;
         }
+        tokInput = strtok(NULL, ",/ ");
+    }
 
-        tokInput = strtok(NULL, ",/");
+    //recursive case for multiple lined files
+    if(fgets(alphabet_input, MAX_FILE_LENGTH, fp) != NULL){
+        printf("gets here\n");
+        return i + parseAlphaProb(alphaList, fp);
     }
 
     return i;
@@ -59,60 +65,17 @@ int main(){
     int symbol_count = parseAlphaProb(alphaList, fp);
     printf("Printing alphabet...\n");
 
+    //close alphabet.txt file
+    fclose(fp);
+
+    //testing
+    printf("symbol count: %d\n",symbol_count);
+
+
     for(int i = 0; i < symbol_count; i++){
         printf("%c %.3f\n", alphaList[i].character, alphaList[i].probability);
     }
 
 
-/*
-    // Read and print each line of the file
-    while (fgets(alphabet_input, MAX_FILE_LENGTH, file) != NULL) 
-    {
-        printf("Line being read: \"%s\"", alphabet_input);
-
-        // Each line gets parsed and put into the data structure
-        int i = 0;
-        while(alphabet_input[i] != '\0')
-        {
-            if(isalpha(alphabet_input[i]))
-            {
-                alpha_cell.character[symbol_count] = alphabet_input[i];
-                symbol_count++;
-            } 
-            else if (isdigit(alphabet_input[i]))
-            {
-                int x = 0;
-                char tmp_numS[10];
-                while(isdigit(alphabet_input[i+x]) || ('.' == alphabet_input[i+x]))
-                {
-                    tmp_numS[x] = alphabet_input[i+x];
-                    x++;
-                }
-                alpha_cell.probability[prob_count] = strtof(tmp_numS, NULL);
-                printf("WHAT THE FYUCK IS RHIS %s\n",strtof(tmp_numS, NULL));
-                prob_count++;
-                i = i + x;
-            } 
-            i++;
-        }
-        
-
-    }
-    printf("All lines read\n");
-
-    // Close the file
-    fclose(file);
-
-
-    //print out the data from the data structure
-    printf("\nData from the data structure:\n");
-    int y = 0;
-    while(6 > y)
-    {
-        printf("Character for index %d is: %c\n",y, alpha_cell.character[y]);
-        printf("Probability for index %d is: %f\n",y,alpha_cell.probability[y]);
-        y++;
-    }
-*/
     return 0;
 }
