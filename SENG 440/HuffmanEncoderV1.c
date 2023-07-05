@@ -37,7 +37,7 @@ int parseAlphaProb(alphaCell* alphaList, FILE* fp){
         tokInput = strtok(NULL, ",/ ");
     }
 
-    //recursive case for multiple lined files
+    //recursive case for multiple lined files --- needs this to read from multiple lines!!
     if(fgets(alphabet_input, MAX_FILE_LENGTH, fp) != NULL){
         printf("gets here\n");
         return i + parseAlphaProb(alphaList, fp);
