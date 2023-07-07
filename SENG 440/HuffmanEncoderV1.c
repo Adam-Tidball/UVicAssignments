@@ -3,11 +3,13 @@
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
+//#include "HuffmanHeader.h."
+//#include "HuffmanDecoderV1.c"
 
 // Macros
 #define MAX_FILE_LENGTH 512
-#define MAX_SYMBOLS 26 // Size of the alphabet
-#define MAX_CHAR_CODE_LENGTH 10 // In theory thi should be 8
+#define NUM_SYMBOLS 26 // Size of the alphabet
+#define MAX_CHAR_CODE_LENGTH 8 // In theory this should be 8
 
 
 // Structs
@@ -34,7 +36,7 @@ typedef struct huffmanTable {
 } huffmanTable;
 
 //create a table for the huffman codes as a global variable
-struct huffmanTable huffmanTableOne[MAX_SYMBOLS];
+struct huffmanTable huffmanTableOne[NUM_SYMBOLS];
 int huff_index = 0;
 
 // Functions
@@ -213,17 +215,11 @@ void printCodes(node_t* root, int arr[], int symbol_count){
     }
 }
 
-void huffmanCodes(char alph[], float prob[], int size){
-    // Construct Huffman Tree
-    node_t* root = buildHuffmanEncTree(alph, prob, size);
- 
-    // Print Huffman codes using
-    // the Huffman tree built above
+void huffmanCodes(node_t* root){
+    // Print Huffman codes
     int arr[100], top = 0;
  
     printCodes(root, arr, top);  //added feature that creates Huffman Table
-
- 
 }
 
 
@@ -232,7 +228,7 @@ void printEncodedTextTable(const char* text, struct huffmanTable* huffmanTable) 
         // For all symbols in input text
     for(int i = 0; i < text_size; i++){
         // Check for matching symbol in huffman table
-        for(int j = 0; j < MAX_SYMBOLS; j++){
+        for(int j = 0; j < NUM_SYMBOLS; j++){
             // If matching char found
             if(text[i] == huffmanTable[j].character){
                 printf("character: %c   Code: ",text[i]);
@@ -251,12 +247,13 @@ void printEncodedTextTable(const char* text, struct huffmanTable* huffmanTable) 
 int* printEncodedText(const char* text, struct huffmanTable* huffmanTable) {
     int text_size = strlen(text);
     int* encodedArry = (int*)malloc((text_size) * sizeof(int));  // allocate memory for the message
+    // Note: A message fully composed of Qs would have a longer encoding than text_size
     int index = 0;
 
         // For all symbols in input text
     for(int i = 0; i < text_size; i++){
         // Check for matching symbol in huffman table
-        for(int j = 0; j < MAX_SYMBOLS; j++){
+        for(int j = 0; j < NUM_SYMBOLS; j++){
             // If matching char found
             if(text[i] == huffmanTable[j].character){
                 // add all the bit code values to array
@@ -268,11 +265,82 @@ int* printEncodedText(const char* text, struct huffmanTable* huffmanTable) {
 
         }
     }
+    encodedArry[index] = -1; //make the last value -1
     printf("the size of the index is %d\n", index);
-    printArr(encodedArry,index);
+    printArr(encodedArry, index);
 
     return encodedArry;
-} 
+}
+
+// Huffman decoding
+void brute_decode_text( int* encodedText, struct huffmanTable* huffmanTable)
+{
+    // Get encoded Text Length
+    printf("\n");
+    int encoded_text_length = 0;
+    for(int x = 0; encodedText[x] != -1; x++){
+        printf("%d",encodedText[x]);
+        encoded_text_length = x;
+    }
+    printf("\n test \n");    
+    
+    
+    // Find longest code length  
+    int code_length = 0;
+    for(int j = 0; j < NUM_SYMBOLS; j++){
+        if(code_length < huffmanTable[j].bitValSize){
+            // add all the bit code values to array
+            code_length = huffmanTable[j].bitValSize;
+        }
+    }
+
+    // Test
+    printf("longest code: %d", code_length);
+
+    // For every symbol code pair in the table
+    // check if the code exists in the code_length section
+    //while(encodedText[0] != -1){
+        for(int y = 0; y < NUM_SYMBOLS; y++){
+            for(int i = 0; i < code_length; i++){
+                if(huffmanTable[y].bitVal[i] != encodedText[i]){ // if no match
+                    break;
+                } else if(huffmanTable[y].bitValSize == i){ // if match char & length
+                    printf("CHAR FOUND: %c", huffmanTable[y].character);
+                    //char found so remove the code
+                    for(int d = 0; (d+i) <= encoded_text_length; d++){
+                        encodedText[d] = encodedText[d+i];
+                    }
+                } else { // if match char
+                    //printf("match\n");
+                }
+            }    
+        }
+    //}
+}
+
+void tree_decoding(int* encoded, node_t* root){
+    node_t* cur = root;
+
+    while (*encoded != -1){
+        if(!isLeaf(cur)){
+            if(*encoded == 0){
+                //printf("0\n");
+                cur = cur->leftChild;
+            }
+            else if(*encoded == 1){
+                //printf("1\n");
+                cur = cur->rightChild;
+            }
+            encoded++;
+        }
+        else{
+            printf("%c", cur->character);
+            cur = root;
+        }
+    }
+    printf("%c", cur->character);
+}
+
 
 int main(){
     printf("Huffman Decoding Starting Up!\n");
@@ -280,17 +348,22 @@ int main(){
 	float prob[] = { 0.084966, 0.020720, 0.045388, 0.033844, 0.111607, 0.018121, 0.024705, 0.030034, 0.075448, 0.001965, 0.011016, 0.054893, 0.030129, 0.066544, 0.071635, 0.031671, 0.001962, 0.075809, 0.057351, 0.069509, 0.036308, 0.010074, 0.012899, 0.002902, 0.017779, 0.002722};
     int symbol_count = sizeof(alph) / sizeof(alph[0]);
 
-    huffmanCodes(alph, prob, symbol_count);
+    node_t* root = buildHuffmanEncTree(alph, prob, symbol_count);
+
+    huffmanCodes(root);
 
     char text[] = {'S','O','F','T','W','A','R','E','\0'}; //always include null terminator at the end
     
-    printEncodedTextTable(text, huffmanTableOne);
+    printEncodedTextTable(alph, huffmanTableOne); //current only creates one LUT (possible to use more)
 
+    int* encoded_text = printEncodedText(text, huffmanTableOne);
 
-    int* encoded_text = printEncodedText(text,huffmanTableOne);
+    //Satrt of Decoding 
+    printf("\nStart of decoding:\n");
+    //brute_decode_text(encoded_text, huffmanTableOne);
+    tree_decoding(encoded_text, root);
+
     free(encoded_text);
-
-
 
     return 0;
 }
