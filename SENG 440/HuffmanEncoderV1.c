@@ -3,153 +3,13 @@
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
-//#include "HuffmanHeader.h."
-//#include "HuffmanDecoderV1.c"
-
-// Macros
-#define MAX_FILE_LENGTH 512
-#define NUM_SYMBOLS 26 // Size of the alphabet
-#define MAX_CHAR_CODE_LENGTH 8 // In theory this should be 8
-
-
-// Structs
-typedef struct node_t {
-    char character;
-    float probability;
-    struct node_t *leftChild, *rightChild;
-} node_t;
-
-// For a node at index "i": 
-// The left child is at index "2*i+1" 
-// The right child is at index "2*i+2" 
-// And the parent node is at index "(i-1)//2 (floor division)"
-typedef struct {
-    node_t **treeArray;
-    int numNodes;
-    int maxNodes; 
-} minHeap_t;
-
-typedef struct huffmanTable {
-    char character;
-    int bitVal[MAX_CHAR_CODE_LENGTH];
-    int bitValSize;
-} huffmanTable;
+#include <time.h>
+#include "HuffmanHeader.h"
 
 //create a table for the huffman codes as a global variable
 struct huffmanTable huffmanTableOne[NUM_SYMBOLS];
 int huff_index = 0;
 
-// Functions
-node_t* allocateNewNode(char character, float probability){
-    // Dynamically allocate memory for a new node 
-    node_t* temp = (node_t*)malloc(sizeof(node_t));
-    temp->leftChild = NULL;
-    temp->rightChild = NULL;
-    temp->character = character;
-    temp->probability = probability;
-    return temp;
-}
-
-minHeap_t* createMinHeap(int maxNodes){
-    // Create minHeap object and allocate necessary memory  
-    minHeap_t* minHeap = (minHeap_t*)malloc(sizeof(minHeap_t));
- 
-    minHeap->numNodes = 0;
-    minHeap->maxNodes = maxNodes;
- 
-    minHeap->treeArray = (node_t**)malloc(minHeap->maxNodes * sizeof(node_t*));
-    return minHeap;
-}
-
-void swapNodes(node_t** n1, node_t** n2){
-    // Swap two nodes 
-    node_t* temp = *n1;
-    *n1 = *n2;
-    *n2 = temp;
-}
-
-void heapify(minHeap_t* minHeap, int i){
-    // Standard min-heapify  
-    int minI = i;
-    int leftI = 2*i+1;
-    int rightI = 2*i+2;
-
-    if (leftI < minHeap->numNodes && minHeap->treeArray[leftI]->probability < minHeap->treeArray[minI]->probability){
-        minI = leftI;
-    }
-    
-    if (rightI < minHeap->numNodes && minHeap->treeArray[rightI]->probability < minHeap->treeArray[minI]->probability){
-        minI = rightI;
-    }
- 
-    if (minI != i) {
-        // Recurse 
-        swapNodes(&minHeap->treeArray[minI],&minHeap->treeArray[i]);
-        heapify(minHeap, minI);
-    }
-}
-
-node_t* popMin(minHeap_t* minHeap){
-    // Pop the min and heapify before returning
-    node_t* temp = minHeap->treeArray[0];
-    minHeap->treeArray[0] = minHeap->treeArray[minHeap->numNodes - 1];
- 
-    minHeap->numNodes--;
-    heapify(minHeap, 0);
- 
-    return temp;
-}
-
-void insertMinHeap(minHeap_t* minHeap, node_t* newNode){
-    // Insert a new node into the heap
-    minHeap->numNodes++;
-    int i = minHeap->numNodes - 1;
- 
-    while (i && newNode->probability < minHeap->treeArray[(i - 1) / 2]->probability) {
- 
-        minHeap->treeArray[i] = minHeap->treeArray[(i - 1) / 2];
-        i = (i - 1) / 2;
-    }
- 
-    minHeap->treeArray[i] = newNode;
-}
-
-void buildMinHeap(minHeap_t* minHeap){
-    // Build heap
-    int n = minHeap->numNodes - 1;
-    int i;
- 
-    for (i = (n - 1) / 2; i >= 0; --i)
-        heapify(minHeap, i);
-}
-
-void printArr(int arr[], int n){
-    int i;
-    for (i = 0; i < n; ++i)
-        printf("%d", arr[i]);
- 
-    printf("\n");
-}
-
-int isLeaf(node_t* node){
-    // Returns 1 if a node is a leaf; returns 0 otherwise
-    return !(node->leftChild) && !(node->rightChild);
-}
-
-minHeap_t* initMinHeap(char alph[], float prob[], int size){
-    // NOTE: If there are n symbols in our alphabet, then there are n-1 internal nodes for Huffman Coding, for a total of 2n - 1 nodes for a tree
-    int numLeaves = size;
-    minHeap_t* minHeap = createMinHeap(2*numLeaves - 1);
- 
-    for (int i = 0; i < size; i++){
-        minHeap->treeArray[i] = allocateNewNode(alph[i], prob[i]);
-    }
- 
-    minHeap->numNodes = numLeaves;
-    buildMinHeap(minHeap);
- 
-    return minHeap;
-}
 
 node_t* buildHuffmanEncTree(char alph[], float prob[], int size){
     // Construct a Huffman Coding Tree for the provided alphabet 
@@ -199,10 +59,6 @@ void printCodes(node_t* root, int arr[], int symbol_count){
     // characters, print the character
     // and its code from arr[]
     if (isLeaf(root)) {
- 
-        printf("%c: ", root->character);
-        printArr(arr, symbol_count);
-
         // Add the character and its symbol
         // to a table to use for encoding
         huffmanTableOne[huff_index].character = root->character;
@@ -318,17 +174,15 @@ void brute_decode_text( int* encodedText, struct huffmanTable* huffmanTable)
     //}
 }
 
-void tree_decoding(int* encoded, node_t* root){
+void tree_decodingRaw(int* encoded, node_t* root){
     node_t* cur = root;
 
     while (*encoded != -1){
         if(!isLeaf(cur)){
             if(*encoded == 0){
-                //printf("0\n");
                 cur = cur->leftChild;
             }
             else if(*encoded == 1){
-                //printf("1\n");
                 cur = cur->rightChild;
             }
             encoded++;
@@ -338,7 +192,37 @@ void tree_decoding(int* encoded, node_t* root){
             cur = root;
         }
     }
-    printf("%c", cur->character);
+    printf("%c\n", cur->character);
+
+}
+
+void tree_decodingV1(int* encoded, node_t* root){
+    node_t* cur = root;
+
+    while (*encoded != -1){
+        if(!isLeaf(cur)){
+            if(*encoded == 0){
+                cur = cur->leftChild;
+            }
+            else if(*encoded == 1){
+                cur = cur->rightChild;
+            }
+            encoded++;
+        }
+        else{
+            printf("%c", cur->character);
+            if(*encoded == 0){
+                cur = root->leftChild;
+                encoded++;
+            }
+            else if (*encoded == 1){
+               cur = root->rightChild; 
+               encoded++;
+            }
+        }
+    }
+    printf("%c\n", cur->character);
+
 }
 
 
@@ -347,23 +231,35 @@ int main(){
     char alph[] = { 'A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'};
 	float prob[] = { 0.084966, 0.020720, 0.045388, 0.033844, 0.111607, 0.018121, 0.024705, 0.030034, 0.075448, 0.001965, 0.011016, 0.054893, 0.030129, 0.066544, 0.071635, 0.031671, 0.001962, 0.075809, 0.057351, 0.069509, 0.036308, 0.010074, 0.012899, 0.002902, 0.017779, 0.002722};
     int symbol_count = sizeof(alph) / sizeof(alph[0]);
+    clock_t start, end;
 
     node_t* root = buildHuffmanEncTree(alph, prob, symbol_count);
 
     huffmanCodes(root);
-
-    char text[] = {'S','O','F','T','W','A','R','E','\0'}; //always include null terminator at the end
     
+    char text[] = {
+    'S', 'O', 'F', 'T', 'W', 'A', 'R', 'E', 'I', 'S', 'A', 'N', 'A', 'W', 'E', 'I', 'N', 'S', 'P', 'I', 'R', 'I', 'N', 'G', 'C', 'R', 'E', 'A', 'T', 'I', 'O', 'N', 'T', 'H', 'A', 'T', 'H', 'A', 'S', 'R', 'E', 'V', 'O', 'L', 'U', 'T', 'I', 'O', 'N', 'I', 'Z', 'E', 'D', 'T', 'H', 'E', 'W', 'O', 'R', 'L', 'D', 'A', 'S', 'W', 'E', 'K', 'N', 'O', 'W', 'I', 'T', 'I', 'T', 'S', 'S', 'H', 'E', 'E', 'R', 'V', 'E', 'R', 'S', 'A', 'T', 'I', 'L', 'I', 'T', 'Y', 'A', 'N', 'D', 'P', 'O', 'W', 'E', 'R', 'A', 'R', 'E', 'N', 'O', 'T', 'H', 'I', 'N', 'G', 'S', 'H', 'O', 'R', 'T', 'O', 'F', 'R', 'E', 'M', 'A', 'R', 'K', 'A', 'B', 'L', 'E', 'S', 'O', 'F', 'T', 'W', 'A', 'R', 'E', 'E', 'M', 'P', 'O', 'W', 'E', 'R', 'S', 'U', 'S', 'T', 'O', 'A', 'C', 'C', 'O', 'M', 'P', 'L', 'I', 'S', 'H', 'I', 'N', 'C', 'R', 'E', 'D', 'I', 'B', 'L', 'E', 'F', 'E', 'A', 'T', 'S', 'E', 'N', 'A', 'B', 'L', 'I', 'N', 'G', 'U', 'S', 'T', 'O', 'S', 'T', 'R', 'E', 'A', 'M', 'L', 'I', 'N', 'E', 'C', 'O', 'M', 'P', 'L', 'E', 'X', 'T', 'A', 'S', 'K', 'S', 'S', 'O', 'L', 'V', 'E', 'I', 'N', 'T', 'R', 'I', 'C', 'A', 'T', 'E', 'P', 'R', 'O', 'B', 'L', 'E', 'M', 'S', 'A', 'N', 'D', 'U', 'N', 'L', 'E', 'A', 'S', 'H', 'O', 'U', 'R', 'C', 'R', 'E', 'A', 'T', 'I', 'V', 'I', 'T', 'Y', 'I', 'T', 'H', 'A', 'S', 'T', 'R', 'A', 'N', 'S', 'F', 'O', 'R', 'M', 'E', 'D', 'I', 'N', 'D', 'U', 'S', 'T', 'R', 'I', 'E', 'S', 'A', 'C', 'C', 'E', 'L', 'E', 'R', 'A', 'T', 'E', 'D', 'S', 'C', 'I', 'E', 'N', 'T', 'I', 'F', 'I', 'C', 'A', 'D', 'V', 'A', 'N', 'C', 'E', 'M', 'E', 'N', 'T', 'S', 'A', 'N', 'D', 'E', 'N', 'H', 'A', 'N', 'C', 'E', 'D', 'C', 'O', 'M', 'M', 'U', 'N', 'I', 'C', 'A', 'T', 'I', 'O', 'N', 'O', 'N', 'A', 'G', 'L', 'O', 'B', 'A', 'L', 'S', 'C', 'A', 'L', 'E', '.', '\0'
+};
+
+
     printEncodedTextTable(alph, huffmanTableOne); //current only creates one LUT (possible to use more)
 
     int* encoded_text = printEncodedText(text, huffmanTableOne);
 
-    //Satrt of Decoding 
+    // Decoding 
     printf("\nStart of decoding:\n");
-    //brute_decode_text(encoded_text, huffmanTableOne);
-    tree_decoding(encoded_text, root);
 
-    free(encoded_text);
+    start = clock();
+    tree_decodingRaw(encoded_text, root);
+    end = clock();
+    printf("Time Elapsed Raw: %ld\n", end - start);
 
+    start = clock();
+    tree_decodingV1(encoded_text, root);
+    end = clock();
+    printf("Time Elapsed V1: %ld\n", end - start);
+    
+
+    freeMem(encoded_text);
     return 0;
 }
