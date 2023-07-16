@@ -6,130 +6,146 @@
 #include <time.h>
 #include "HuffmanHeader.h"
 
-//create a table for the huffman codes as a global variable
-struct huffmanTable huffmanTableOne[NUM_SYMBOLS];
-int huff_index = 0;
 
 
-node_t* buildHuffmanEncTree(char alph[], float prob[], int size){
-    // Construct a Huffman Coding Tree for the provided alphabet 
-    node_t *left, *right, *top;
- 
-    // Create, initialize, and build the min heap 
-    minHeap_t* minHeap = initMinHeap(alph, prob, size);
- 
-    // Iterate while size of heap doesn't become 1
-    while (!(minHeap->numNodes == 1)) {
- 
-        // Extract the two minimum probability nodes
-        left = popMin(minHeap);
-        right = popMin(minHeap);
-
-        // Create new node: Internal nodes identified by '~', set child pointers 
-        top = allocateNewNode('~', left->probability + right->probability);
-
-        top->leftChild = left;
-        top->rightChild = right;
- 
-        insertMinHeap(minHeap, top);
-    }
- 
-    // Pop last node
-    return popMin(minHeap);
-}
-
-void printCodes(node_t* root, int arr[], int symbol_count){
+void printCodes(node_t* root, unsigned char* buff, int bit_count, huffCode_t* asciiToHuffman){
  
     // Assign 0 to left edge and recur
     if (root->leftChild) {
  
-        arr[symbol_count] = 0;
-        printCodes(root->leftChild, arr, symbol_count + 1);
+        buff[bit_count] = 0;
+        printCodes(root->leftChild, buff, bit_count + 1, asciiToHuffman);
     }
  
     // Assign 1 to right edge and recur
     if (root->rightChild) {
  
-        arr[symbol_count] = 1;
-        printCodes(root->rightChild, arr, symbol_count + 1);
+        buff[bit_count] = 1;
+        printCodes(root->rightChild, buff, bit_count + 1, asciiToHuffman);
     }
  
     // If this is a leaf node, then
-    // it contains one of the input
-    // characters, print the character
-    // and its code from arr[]
+    // it contains a symbol
     if (isLeaf(root)) {
-        // Add the character and its symbol
-        // to a table to use for encoding
-        huffmanTableOne[huff_index].character = root->character;
-        huffmanTableOne[huff_index].bitValSize = symbol_count;
-        for(int y = 0; y < symbol_count; y++){
-            huffmanTableOne[huff_index].bitVal[y] = arr[y];
-        }
-        huff_index++;
+        int ascii_index = (int) root->symbol;
+        // Unsigned char bit_cursor = 0b10000000;
+        // Add the symbol and its encoding to a table
+        asciiToHuffman[ascii_index].symbol = root->symbol;
+        asciiToHuffman[ascii_index].code_length = bit_count;
 
+        for (int i = 0; i < bit_count; i++) {
+            asciiToHuffman[ascii_index].code[i] = buff[i];
+        }
+        
+
+        // for (int i = 0; i < MAX_CODE_LENGTH/8;) {
+        //     if (buff[i] == 1){
+        //         asciiToHuffman[ascii_index].code[i] |= bit_cursor;
+        //         bit_cursor >>= 1;
+        //     }
+        //     if (bit_cursor == 0){ // Out of bits
+        //         bit_cursor = 0b10000000;
+        //         i++;
+        //     }
+        // }
     }
 }
 
-void huffmanCodes(node_t* root){
-    // Print Huffman codes
-    int arr[100], top = 0;
- 
-    printCodes(root, arr, top);  //added feature that creates Huffman Table
-}
-
-
-void printEncodedTextTable(const char* text, struct huffmanTable* huffmanTable) {
-    int text_size = strlen(text);
-        // For all symbols in input text
-    for(int i = 0; i < text_size; i++){
-        // Check for matching symbol in huffman table
-        for(int j = 0; j < NUM_SYMBOLS; j++){
-            // If matching char found
-            if(text[i] == huffmanTable[j].character){
-                printf("character: %c   Code: ",text[i]);
-                // Print all the bit code values
-                for(int z = 0; z < huffmanTable[j].bitValSize; z++){
-                    printf("%d",huffmanTable[j].bitVal[z]);
-                }
-                printf("\n");
-            }
-
-        }
+void generatehuffmanCodes(node_t* root, huffCode_t* asciiToHuffman){
+    unsigned char buff[100];
+    // Initialize each symbol sucht that its index matches to its ascii code (i.e. asciiToHuffman[65] = 'A')
+    for(int i = 0; i < MAX_SYMBOLS; i++){
+        asciiToHuffman[i].symbol = (unsigned char) i;
+        memset(asciiToHuffman->code, 0, MAX_CODE_LENGTH);
     }
     
-} 
+    printCodes(root, buff, 0, asciiToHuffman);
+}
 
-int* printEncodedText(const char* text, struct huffmanTable* huffmanTable) {
-    int text_size = strlen(text);
-    int* encodedArry = (int*)malloc((text_size) * sizeof(int));  // allocate memory for the message
-    // Note: A message fully composed of Qs would have a longer encoding than text_size
-    int index = 0;
 
-        // For all symbols in input text
-    for(int i = 0; i < text_size; i++){
-        // Check for matching symbol in huffman table
-        for(int j = 0; j < NUM_SYMBOLS; j++){
-            // If matching char found
-            if(text[i] == huffmanTable[j].character){
-                // add all the bit code values to array
-                for(int z = 0; z < huffmanTable[j].bitValSize; z++){
-                    encodedArry[index] = huffmanTable[j].bitVal[z];
-                    index++;
-                }
+void printSymbolEncoding(unsigned char* symbols, int symbol_count,  huffCode_t* asciiToHuffman){
+    char symbol;
+    char *control_characters[] = {"NUL","SOH", "STX", "ETX", "EOT", "ENQ", "ACK", "BEL", 
+                                  "BS", "HT", "LF", "VT", "FF", "CR", "SO", "SI", "DLE", 
+                                  "DC1", "DC2","DC3", "DC4", "NAK", "SYN", "ETB", "CAN", 
+                                  "EM", "SUB", "ESC", "FS", "GS", "RS", "US"};
+
+    for(int i = 0; i < MAX_SYMBOLS; i++){
+        symbol = asciiToHuffman[i].symbol;
+        if(symbolIndex(symbols, symbol_count, symbol) != -1){
+            // Print symbol
+            if(symbol < 8 || (symbol > 15 && symbol < 25) || symbol == 26 || symbol == 27){
+                printf("Symbol: %s  Encoding: ", control_characters[(int) symbol]);
             }
-
+            else if((symbol > 7 && symbol < 16) || symbol == 25 ||(symbol > 27 && symbol < 32)){
+                printf("Symbol: %s    Encoding: ", control_characters[(int) symbol]);
+            }
+            else if(symbol == 32){
+                printf("Symbol: space Encoding: ");
+            }
+            else if(symbol == 127){
+                printf("Symbol: DEL   Encoding: ");
+            }
+            else{
+                printf("Symbol: %c     Encoding: ", symbol);
+            }
+            // Print huffman code
+            for(int j = 0; j < asciiToHuffman[i].code_length; j++){
+                printf("%d", asciiToHuffman[i].code[j]);
+            }
+            printf("\n");
         }
     }
-    encodedArry[index] = -1; //make the last value -1
-    printf("the size of the index is %d\n", index);
-    printArr(encodedArry, index);
 
-    return encodedArry;
+}
+
+void bitify(char* code, char* compressed){
+    // Parameters: Huffman code to be bitified; compressed string reference
+    // Returns: # of bits written
+    //char arr[] = {0b10000000, 0b01000000, 0b00100000};
+
+};
+
+int generateEncodedFile(const char* sample_filename, const char* encoded_filename, huffCode_t* asciiToHuffman){
+    // Sample file
+    FILE* fp_sample = fopen(sample_filename, "r");
+    if(fp_sample == NULL){
+        printf("Failed to open sample file!\n");
+        exit(1);
+    }
+
+    // Compressed file
+    FILE* fp_compressed = fopen(encoded_filename, "w");
+    if(fp_compressed == NULL){
+        printf("Failed to create encoding file!\n");
+        exit(1);
+    }
+   
+    // Variables
+    unsigned char sample[MAX_FILE_LENGTH];
+    unsigned char encodedSample[MAX_ENCODING_LENGTH]; 
+    int index;
+    int bitstoWrite = 0;
+    int sample_size = fread(sample, sizeof(unsigned char), MAX_FILE_LENGTH, fp_sample);
+    
+    for(int i = 0; i < sample_size; i++){
+        index = (int) sample[i];
+        for(int j = 0; j < asciiToHuffman[index].code_length; j++){
+            encodedSample[bitstoWrite] = asciiToHuffman[index].code[j];
+            bitstoWrite++;
+        }
+    }
+
+    int huff_sample_size = fwrite(encodedSample, sizeof(unsigned char), bitstoWrite,  fp_compressed);
+    
+    fclose(fp_sample);
+    fclose(fp_compressed);
+
+    return huff_sample_size;
 }
 
 // Huffman decoding
-void brute_decode_text( int* encodedText, struct huffmanTable* huffmanTable)
+void brute_decode_text(int* encodedText, huffCode_t* asciiToHuffman)
 {
     // Get encoded Text Length
     printf("\n");
@@ -143,10 +159,10 @@ void brute_decode_text( int* encodedText, struct huffmanTable* huffmanTable)
     
     // Find longest code length  
     int code_length = 0;
-    for(int j = 0; j < NUM_SYMBOLS; j++){
-        if(code_length < huffmanTable[j].bitValSize){
+    for(int j = 0; j < MAX_SYMBOLS; j++){
+        if(code_length < asciiToHuffman[j].code_length){
             // add all the bit code values to array
-            code_length = huffmanTable[j].bitValSize;
+            code_length = asciiToHuffman[j].code_length;
         }
     }
 
@@ -156,12 +172,12 @@ void brute_decode_text( int* encodedText, struct huffmanTable* huffmanTable)
     // For every symbol code pair in the table
     // check if the code exists in the code_length section
     //while(encodedText[0] != -1){
-        for(int y = 0; y < NUM_SYMBOLS; y++){
+        for(int y = 0; y < MAX_SYMBOLS; y++){
             for(int i = 0; i < code_length; i++){
-                if(huffmanTable[y].bitVal[i] != encodedText[i]){ // if no match
+                if(asciiToHuffman[y].code[i] != encodedText[i]){ // if no match
                     break;
-                } else if(huffmanTable[y].bitValSize == i){ // if match char & length
-                    printf("CHAR FOUND: %c", huffmanTable[y].character);
+                } else if(asciiToHuffman[y].code_length == i){ // if match char & length
+                    printf("CHAR FOUND: %c", asciiToHuffman[y].symbol);
                     //char found so remove the code
                     for(int d = 0; (d+i) <= encoded_text_length; d++){
                         encodedText[d] = encodedText[d+i];
@@ -174,30 +190,52 @@ void brute_decode_text( int* encodedText, struct huffmanTable* huffmanTable)
     //}
 }
 
-void tree_decodingRaw(int* encoded, node_t* root){
+void treeDecodingBitByBit(char* huf_filename, char* decoded_filename, node_t* root, const int size){
+    FILE* fpEncoded = fopen(huf_filename, "r");
+    if(fpEncoded == NULL){
+        printf("Failed to open encoded file!\n");
+        exit(1);
+    }
+    
     node_t* cur = root;
+    unsigned char encoded[size];
+    unsigned char decoded[size/8];
+    int index = 0;
 
-    while (*encoded != -1){
+    FILE* fpDecoded = fopen(decoded_filename, "w");
+    if(fpDecoded == NULL){
+        printf("Failed to create decoded file!\n");
+        exit(1);
+    }
+
+    fread(encoded, sizeof(unsigned char), size, fpEncoded);
+    for(int i = 0; i < size;){
         if(!isLeaf(cur)){
-            if(*encoded == 0){
+            if(encoded[i] == (unsigned char) 0){
                 cur = cur->leftChild;
             }
-            else if(*encoded == 1){
+            else if(encoded[i] == (unsigned char) 1){
                 cur = cur->rightChild;
             }
-            encoded++;
+            i++;
         }
         else{
-            printf("%c", cur->character);
+            decoded[index] = cur->symbol;
+            index++;
             cur = root;
         }
     }
-    printf("%c\n", cur->character);
-
+    decoded[index] = cur->symbol;
+    index++;
+    
+    fwrite(decoded, sizeof(unsigned char), index, fpDecoded);
+    fclose(fpEncoded);
+    fclose(fpDecoded);
 }
 
-void tree_decodingV1(int* encoded, node_t* root){
+void tree_decodingV1(int* encoded, node_t* root, unsigned char* decoded){
     node_t* cur = root;
+    int i = 0;
 
     while (*encoded != -1){
         if(!isLeaf(cur)){
@@ -210,56 +248,125 @@ void tree_decodingV1(int* encoded, node_t* root){
             encoded++;
         }
         else{
-            printf("%c", cur->character);
+            // store decoded symbol
+            decoded[i] = cur->symbol;
+            i++;
+            // Can be done up to a depth of m-1, where m = length of smallest code
             if(*encoded == 0){
                 cur = root->leftChild;
                 encoded++;
+                if(*encoded == 0){
+                    cur = root->leftChild;
+                    
+                }
+                else{
+                    cur = root->rightChild; 
+                }
+                encoded++;
             }
-            else if (*encoded == 1){
+            else{
                cur = root->rightChild; 
                encoded++;
+               if(*encoded == 0){
+                    cur = root->leftChild;
+                    
+                }
+                else{
+                    cur = root->rightChild; 
+                }
+                encoded++;
             }
         }
     }
-    printf("%c\n", cur->character);
+    decoded[i] = cur->symbol;
+    i++;
+}
 
+int prologue(const char* sample_filename, unsigned char* symbols, float* probabilities, int* sample_size){
+    FILE* fp = fopen(sample_filename, "r");  // File pointer
+    unsigned char cur_symbol;                // Holds the current symbol 
+    int symbol_count = 0;                    // # of unique ASCII values
+    int frequencies[MAX_SYMBOLS];            // Frequencies of each symbol
+    unsigned char sample[MAX_FILE_LENGTH];   // Buffer for sample text
+
+    *sample_size = fread(sample, sizeof(unsigned char), MAX_FILE_LENGTH, fp);  // Retrieve sample text
+
+    for (int i = 0; i < *sample_size; i++){
+        cur_symbol = sample[i];
+        if (symbol_count > MAX_SYMBOLS){                                       // If MAX
+            printf("Symbol count exceeded!\nAbort to avoid overflow!\n");
+            exit(1);
+        }                                                                       //
+        else if(symbolIndex(symbols, symbol_count, cur_symbol) == -1){
+            symbols[symbol_count] = cur_symbol;
+            frequencies[symbol_count] = 1;
+            symbol_count++;
+        }
+        else{                                                                   // 
+            frequencies[symbolIndex(symbols, symbol_count, cur_symbol)]  += 1;  
+        }
+    }
+    
+    float inv_sample_size = *sample_size;
+    // Precomputed for efficiency 
+    inv_sample_size = 1/inv_sample_size;
+    for (int i = 0; i < symbol_count; i++){
+        probabilities[i] = frequencies[i]*inv_sample_size;
+    }
+
+    fclose(fp);
+    return symbol_count;
 }
 
 
 int main(){
-    printf("Huffman Decoding Starting Up!\n");
-    char alph[] = { 'A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'};
-	float prob[] = { 0.084966, 0.020720, 0.045388, 0.033844, 0.111607, 0.018121, 0.024705, 0.030034, 0.075448, 0.001965, 0.011016, 0.054893, 0.030129, 0.066544, 0.071635, 0.031671, 0.001962, 0.075809, 0.057351, 0.069509, 0.036308, 0.010074, 0.012899, 0.002902, 0.017779, 0.002722};
-    int symbol_count = sizeof(alph) / sizeof(alph[0]);
-    clock_t start, end;
+    /******************************** Variables ********************************/
+    char sample_filename[] = "sample3.txt";  // Filename for sample
+    char huf_filename[64];                   // Filename for encoded sample
+    char decoded_filename[64];               // Filename for encoded sample
+    unsigned char symbols[MAX_SYMBOLS];      // Every unique ASCII symbol in the sample (unsorted)
+    float probabilities[MAX_SYMBOLS];        // Corresponding probability for each symbol
+    int sample_size;                         // Size of the sample in bits
+    int huff_sample_size;                    // Size of the encoded sample in bits
+    int symbol_count;                        // Size of the alphabet
+    node_t* huffmanRoot;                     // Root node of the huffman tree
+    huffCode_t asciiToHuffman[MAX_SYMBOLS];  // Huffman code of each symbol is stored at the index of its ascii encoding
+    clock_t start, end;                      // Used for benchmarking
 
-    node_t* root = buildHuffmanEncTree(alph, prob, symbol_count);
 
-    huffmanCodes(root);
+    /******************************** Initialization ********************************/
+    stripFilename(sample_filename, huf_filename);      // Retrieve filename
+    stripFilename(sample_filename, decoded_filename);  // Retrieve filename
+    strncat(huf_filename, "_compressed.huf", 16);      // Create encoded filename
+    strncat(decoded_filename, "_decoded.txt", 14);     // Create decoded filename 
+
+    symbol_count = prologue(sample_filename, symbols,  // Retrieves sample text and size, determines symbols 
+                   probabilities, &sample_size);       // and their probabilities, and return symbol_count
     
-    char text[] = {
-    'S', 'O', 'F', 'T', 'W', 'A', 'R', 'E', 'I', 'S', 'A', 'N', 'A', 'W', 'E', 'I', 'N', 'S', 'P', 'I', 'R', 'I', 'N', 'G', 'C', 'R', 'E', 'A', 'T', 'I', 'O', 'N', 'T', 'H', 'A', 'T', 'H', 'A', 'S', 'R', 'E', 'V', 'O', 'L', 'U', 'T', 'I', 'O', 'N', 'I', 'Z', 'E', 'D', 'T', 'H', 'E', 'W', 'O', 'R', 'L', 'D', 'A', 'S', 'W', 'E', 'K', 'N', 'O', 'W', 'I', 'T', 'I', 'T', 'S', 'S', 'H', 'E', 'E', 'R', 'V', 'E', 'R', 'S', 'A', 'T', 'I', 'L', 'I', 'T', 'Y', 'A', 'N', 'D', 'P', 'O', 'W', 'E', 'R', 'A', 'R', 'E', 'N', 'O', 'T', 'H', 'I', 'N', 'G', 'S', 'H', 'O', 'R', 'T', 'O', 'F', 'R', 'E', 'M', 'A', 'R', 'K', 'A', 'B', 'L', 'E', 'S', 'O', 'F', 'T', 'W', 'A', 'R', 'E', 'E', 'M', 'P', 'O', 'W', 'E', 'R', 'S', 'U', 'S', 'T', 'O', 'A', 'C', 'C', 'O', 'M', 'P', 'L', 'I', 'S', 'H', 'I', 'N', 'C', 'R', 'E', 'D', 'I', 'B', 'L', 'E', 'F', 'E', 'A', 'T', 'S', 'E', 'N', 'A', 'B', 'L', 'I', 'N', 'G', 'U', 'S', 'T', 'O', 'S', 'T', 'R', 'E', 'A', 'M', 'L', 'I', 'N', 'E', 'C', 'O', 'M', 'P', 'L', 'E', 'X', 'T', 'A', 'S', 'K', 'S', 'S', 'O', 'L', 'V', 'E', 'I', 'N', 'T', 'R', 'I', 'C', 'A', 'T', 'E', 'P', 'R', 'O', 'B', 'L', 'E', 'M', 'S', 'A', 'N', 'D', 'U', 'N', 'L', 'E', 'A', 'S', 'H', 'O', 'U', 'R', 'C', 'R', 'E', 'A', 'T', 'I', 'V', 'I', 'T', 'Y', 'I', 'T', 'H', 'A', 'S', 'T', 'R', 'A', 'N', 'S', 'F', 'O', 'R', 'M', 'E', 'D', 'I', 'N', 'D', 'U', 'S', 'T', 'R', 'I', 'E', 'S', 'A', 'C', 'C', 'E', 'L', 'E', 'R', 'A', 'T', 'E', 'D', 'S', 'C', 'I', 'E', 'N', 'T', 'I', 'F', 'I', 'C', 'A', 'D', 'V', 'A', 'N', 'C', 'E', 'M', 'E', 'N', 'T', 'S', 'A', 'N', 'D', 'E', 'N', 'H', 'A', 'N', 'C', 'E', 'D', 'C', 'O', 'M', 'M', 'U', 'N', 'I', 'C', 'A', 'T', 'I', 'O', 'N', 'O', 'N', 'A', 'G', 'L', 'O', 'B', 'A', 'L', 'S', 'C', 'A', 'L', 'E', '.', '\0'
-};
 
+    /******************************** Encoding ********************************/
+    huffmanRoot = buildHuffmanEncTree(symbols,               // Construct a Huffman encoding tree for the alphabet
+                   probabilities, symbol_count);             // with a min-heap implementaion 
+    
+    generatehuffmanCodes(huffmanRoot, asciiToHuffman);       // Recursively traverse the tree, generate the huffman code for every leaf's symbol,
+                                                             // and populate the encoding table
 
-    printEncodedTextTable(alph, huffmanTableOne); //current only creates one LUT (possible to use more)
+    huff_sample_size = generateEncodedFile(sample_filename,  // Generate the huffman encoding of the sample,
+                       huf_filename, asciiToHuffman);        // output it to a new file, and return the size
 
-    int* encoded_text = printEncodedText(text, huffmanTableOne);
-
-    // Decoding 
-    printf("\nStart of decoding:\n");
-
+    
+    
+    /******************************** Decoding ********************************/
     start = clock();
-    tree_decodingRaw(encoded_text, root);
+    treeDecodingBitByBit(huf_filename, decoded_filename, huffmanRoot, huff_sample_size);  // No optimizations
     end = clock();
+
+    /******************************** Prints Statements ********************************/
+    printSymbolEncoding(symbols, symbol_count, asciiToHuffman);
+    printf("Sample Size: %d bits\n", sample_size*8);
+    printf("Symbol Count: %d\n", symbol_count);
+    printf("Encoded Sample Size: %d bits\n", huff_sample_size);
     printf("Time Elapsed Raw: %ld\n", end - start);
 
-    start = clock();
-    tree_decodingV1(encoded_text, root);
-    end = clock();
-    printf("Time Elapsed V1: %ld\n", end - start);
-    
-
-    freeMem(encoded_text);
     return 0;
 }

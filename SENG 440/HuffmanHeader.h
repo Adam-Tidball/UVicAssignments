@@ -1,41 +1,38 @@
 // Macros
-#define MAX_FILE_LENGTH 512
-#define NUM_SYMBOLS 26 // Size of the alphabet
-#define MAX_CHAR_CODE_LENGTH 8 // In theory this should be 8
+#define MAX_FILE_LENGTH 10000
+#define MAX_ENCODING_LENGTH 25000
+#define MAX_SYMBOLS 128 // ASCII
+#define MAX_CODE_LENGTH 16 
 
 
 // Structs
 typedef struct node_t {
-    char character;
+    unsigned char symbol;
     float probability;
     struct node_t *leftChild, *rightChild;
 } node_t;
 
-// For a node at index "i": 
-// The left child is at index "2*i+1" 
-// The right child is at index "2*i+2" 
-// And the parent node is at index "(i-1)//2 (floor division)"
 typedef struct {
     node_t **treeArray;
     int numNodes;
     int maxNodes; 
 } minHeap_t;
 
-typedef struct huffmanTable {
-    char character;
-    int bitVal[MAX_CHAR_CODE_LENGTH];
-    int bitValSize;
-} huffmanTable;
+typedef struct {
+    unsigned char symbol;
+    unsigned char code[MAX_CODE_LENGTH]; // MAX_CDOE_LENGTH/8 when bitified
+    int code_length;
+} huffCode_t;
 
 // Functions 
 
 /** Min Heap**/
-node_t* allocateNewNode(char character, float probability){
+node_t* allocateNewNode(unsigned char symbol, float probability){
     // Dynamically allocate memory for a new node 
     node_t* temp = (node_t*)malloc(sizeof(node_t));
     temp->leftChild = NULL;
     temp->rightChild = NULL;
-    temp->character = character;
+    temp->symbol = symbol;
     temp->probability = probability;
     return temp;
 }
@@ -118,8 +115,9 @@ int isLeaf(node_t* node){
     return !(node->leftChild) && !(node->rightChild);
 }
 
-minHeap_t* initMinHeap(char alph[], float prob[], int size){
-    // NOTE: If there are n symbols in our alphabet, then there are n-1 internal nodes for Huffman Coding, for a total of 2n - 1 nodes for a tree
+minHeap_t* initMinHeap(unsigned char alph[], float prob[], int size){
+    // NOTE: If there are n symbols in our alphabet, 
+    // then there are n-1 internal nodes for Huffman Coding, for a total of 2n - 1 nodes for a tree
     int numLeaves = size;
     minHeap_t* minHeap = createMinHeap(2*numLeaves - 1);
  
@@ -133,6 +131,35 @@ minHeap_t* initMinHeap(char alph[], float prob[], int size){
     return minHeap;
 }
 
+/** Huffman Encoding**/
+
+node_t* buildHuffmanEncTree(unsigned char alph[], float prob[], int size){
+    node_t *left, *right, *top;
+ 
+    // Create, initialize, and build the min heap 
+    minHeap_t* minHeap = initMinHeap(alph, prob, size);
+ 
+    // Iterate while size of heap doesn't become 1
+    while (!(minHeap->numNodes == 1)) {
+ 
+        // Extract the two minimum probability nodes
+        left = popMin(minHeap);
+        right = popMin(minHeap);
+
+        // Create new node: Internal nodes identified by '~', set child pointers 
+        top = allocateNewNode('~', left->probability + right->probability);
+
+        top->leftChild = left;
+        top->rightChild = right;
+ 
+        insertMinHeap(minHeap, top);
+    }
+ 
+    // Pop last node
+    return popMin(minHeap);
+}
+
+
 /** Helper **/
 void printArr(int arr[], int n){
     int i;
@@ -142,10 +169,22 @@ void printArr(int arr[], int n){
     printf("\n");
 }
 
-void freeMem(int* encoded){
-    while(*encoded != -1){
-        free(encoded);
-        encoded++;
-    }
-    free(encoded);
+int symbolIndex(unsigned char* symbols, int symbol_count, unsigned char symbol){
+    // If a symbol exists in symbols, return its index
+    // Otherwise return -1
+    for (int i = 0; i < symbol_count; i++){
+            if (symbols[i] == symbol){
+                return i;
+            }
+        }
+
+    return -1;
+}
+
+void stripFilename(char* filename, char* destination){
+    char strip[50];
+    char* tok;
+    strncpy(strip, filename, 50);
+    tok = strtok(strip, ".");
+    strncpy(destination, tok, 50);
 }
