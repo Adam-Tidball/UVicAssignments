@@ -33,10 +33,34 @@ void printCodes(node_t* root, unsigned char* buff, int bit_count, huffCode_t* as
         asciiToHuffman[ascii_index].symbol = root->symbol;
         asciiToHuffman[ascii_index].code_length = bit_count;
 
+        // USED FOR TESTING - represents bits of the Huffman code as chars
         for (int i = 0; i < bit_count; i++) {
             asciiToHuffman[ascii_index].code[i] = buff[i];
         }
         
+
+        // V2 - represents bits of the Huffman code as bits
+        for (int i = 0; i < bit_count; i++) {
+            asciiToHuffman[ascii_index].bitCode <<= 1;
+            if (buff[i]  == 1) {
+                asciiToHuffman[ascii_index].bitCode |= 1;
+            } 
+            else if(buff[i] == 0) {
+                asciiToHuffman[ascii_index].bitCode |= 0;
+            } 
+            else {
+                printf("Tried to convert non 1 or 0 to bit!\n");
+                exit(1);
+            }
+        }
+
+        // TESTING - prints the symbols and their bit codes 
+        printf("The bit code for symbol %c is: ",asciiToHuffman[ascii_index].symbol);
+        for (int i = bit_count - 1; i >= 0; i--) {
+        unsigned int mask = 1u << i;    // Sets ith bit to 1 and rest to 0 for unsigned int literal
+        putchar((asciiToHuffman[ascii_index].bitCode & mask) ? '1' : '0');
+        }
+        printf("\n");
 
         // for (int i = 0; i < MAX_CODE_LENGTH/8;) {
         //     if (buff[i] == 1){
@@ -53,7 +77,7 @@ void printCodes(node_t* root, unsigned char* buff, int bit_count, huffCode_t* as
 
 void generatehuffmanCodes(node_t* root, huffCode_t* asciiToHuffman){
     unsigned char buff[100];
-    // Initialize each symbol sucht that its index matches to its ascii code (i.e. asciiToHuffman[65] = 'A')
+    // Initialize each symbol such that its index matches to its ascii code (i.e. asciiToHuffman[65] = 'A')
     for(int i = 0; i < MAX_SYMBOLS; i++){
         asciiToHuffman[i].symbol = (unsigned char) i;
         memset(asciiToHuffman->code, 0, MAX_CODE_LENGTH);
@@ -75,7 +99,7 @@ void printSymbolEncoding(unsigned char* symbols, int symbol_count,  huffCode_t* 
         if(symbolIndex(symbols, symbol_count, symbol) != -1){
             // Print symbol
             if(symbol < 8 || (symbol > 15 && symbol < 25) || symbol == 26 || symbol == 27){
-                printf("Symbol: %s  Encoding: ", control_characters[(int) symbol]);
+                printf("Symbol: %s   Encoding: ", control_characters[(int) symbol]);
             }
             else if((symbol > 7 && symbol < 16) || symbol == 25 ||(symbol > 27 && symbol < 32)){
                 printf("Symbol: %s    Encoding: ", control_characters[(int) symbol]);
@@ -208,6 +232,9 @@ void treeDecodingBitByBit(char* huf_filename, char* decoded_filename, node_t* ro
         exit(1);
     }
 
+    char str[] = "Tree Decoding Below:\n";
+    fwrite(str, sizeof(str) - sizeof(char), 1, fpDecoded); // Print str but not '\0'
+
     fread(encoded, sizeof(unsigned char), size, fpEncoded);
     for(int i = 0; i < size;){
         if(!isLeaf(cur)){
@@ -282,6 +309,207 @@ void tree_decodingV1(int* encoded, node_t* root, unsigned char* decoded){
     i++;
 }
 
+void lutPopulate(node_t* root,  unsigned char* buff, unsigned int bit_count, unsigned int longest_code_exp, lut** all_luts, unsigned int* lut_num, unsigned int* row_count){
+
+    // Search for leaf to the left
+    if (root->leftChild) {
+ 
+        buff[bit_count] = 0;
+        lutPopulate(root->leftChild, buff,  bit_count + 1, longest_code_exp, all_luts, lut_num, row_count);
+    }
+ 
+    // Search for leaf to the right
+    if (root->rightChild) {
+ 
+        buff[bit_count] = 1;
+        lutPopulate(root->rightChild, buff, bit_count + 1, longest_code_exp, all_luts, lut_num, row_count);
+    }
+ 
+    // If this is a leaf node, then it contains a symbol
+    if (isLeaf(root)) {
+
+        // The buffer is the start of the index for the symbol and code_length 
+        unsigned int bit_val = 0;        
+        for (int i = 0; i < bit_count; i++) {
+            bit_val <<= 1;
+            if (buff[i]  == 1) {
+                bit_val |= 1;
+            } 
+            else if(buff[i] == 0) {
+                bit_val |= 0;
+            } 
+            else {
+                printf("Tried to convert non 1 or 0 to bit!\n");
+                exit(1);
+            }
+        }
+
+        // Still need to fill in all possible combos of bits after the buffer code
+        unsigned int min_bit_val = bit_val;
+        unsigned int max_bit_val = bit_val;
+        unsigned int bit_dif = longest_code_exp - bit_count;
+
+        for(int i = 0; i < bit_dif; i++) {
+            min_bit_val <<= 1;
+            min_bit_val |= 0;
+            max_bit_val <<= 1;
+            max_bit_val |= 1;
+        } 
+
+        while(min_bit_val <= max_bit_val) {
+            all_luts[*lut_num][min_bit_val - ((*lut_num) * (MAX_ROWS_PER_TABLE))].symbol = root->symbol;
+            all_luts[*lut_num][min_bit_val - ((*lut_num) * (MAX_ROWS_PER_TABLE))].code_length = bit_count;
+            (*row_count) = (*row_count) + 1;
+            if ((*row_count) == MAX_ROWS_PER_TABLE) {
+                (*lut_num) = (*lut_num) + 1;
+                (*row_count) = 0;
+            }
+            min_bit_val += 1;
+
+            // Testing 1
+            // printf("For the table: %d and index: %d The ", *lut_num, (min_bit_val-1) - ((*lut_num) * MAX_ROWS_PER_TABLE) );
+            // printf("Symbol \"%c\" was reached\n", root->symbol);
+        }
+
+        // Testing 2
+        // printf("\nThe main bit_val is: ");
+        // for (int i = longest_code_exp - 1; i >= 0; i--) {
+        // unsigned int mask = 1u << i;    // Sets ith bit to 1 and rest to 0 for unsigned int literal
+        // putchar((bit_val & mask) ? '1' : '0');
+        // }
+        // printf("  and the symbol is: %c", root->symbol);
+        // printf("\nWith the extra zero this is number: %u\n", bit_val);
+
+    }
+
+}
+
+
+
+int lutCreation(node_t* root, int alpha_size, lut** all_luts){
+    // Start with making one large table
+    unsigned int table_size = 1 << alpha_size; // Equivalent to 2^alpha_size
+
+    // Allocate memory for tables 
+    for(int i = 0; i < MAX_TABLES; i++){
+        lut* mem_per_table = malloc(sizeof(lut)*(MAX_ROWS_PER_TABLE + 1));
+        if (mem_per_table == NULL){
+            printf("Failed to allocate memory for look up table");
+            exit(1);
+        }
+        all_luts[i] = mem_per_table;
+    }
+
+    // Find the longest possible code length
+    unsigned int longest_code = 1;
+    int longest_code_exp = 0;
+    while( longest_code <= alpha_size){
+        longest_code <<= 1;
+        longest_code_exp++;    
+    }
+
+    unsigned char buff[100];
+    unsigned int lut_num = 0;
+    unsigned int row_counter = 0;
+
+    lutPopulate(root, buff , 0, longest_code_exp, all_luts, &lut_num, &row_counter);
+
+    return longest_code_exp;
+
+}
+
+void lutFreeAll( lut** all_luts){
+    // Interates over all possible tables and frees memory
+    for(int i = 0; i < MAX_TABLES; i++){
+        free(all_luts[i]);
+    }
+}
+
+void lutDecoding(char* huf_filename, char* decoded_filename, lut** all_luts, const int barrel_shifter, const int size){
+    FILE* fpEncoded = fopen(huf_filename, "r");
+    if(fpEncoded == NULL){
+        printf("Failed to open encoded file!\n");
+        exit(1);
+    }
+
+        FILE* fpDecoded = fopen(decoded_filename, "a");
+    if(fpDecoded == NULL){
+        printf("Failed to create decoded file!\n");
+        exit(1);
+    }
+
+    char str[] = "\n\nLUT Decoding Below:\n";
+    fwrite(str, sizeof(str) - sizeof(char), 1, fpDecoded);
+
+    // Go through the encoded file by barrel_shifter length sections 
+    // and search each table for that index
+    unsigned char encoded[size];
+    fread(encoded, sizeof(unsigned char), size, fpEncoded);
+
+
+    printf("\n TESTING \n");
+    for(int i = 0; i <= size; i++) {
+        printf("%u", encoded[i]);
+    }
+    printf("\n ");
+
+    int decoded_bit_count = 0;
+
+    while(decoded_bit_count < size){
+        unsigned int encoded_section = 0;
+        // Get barrel shifter section of encoded message     
+        for (int i = 0; i < barrel_shifter; i++) {
+            encoded_section <<= 1;
+            if (encoded[i]  == 1) {
+                encoded_section |= 1;
+            } 
+            else if(encoded[i] == 0) {
+                encoded_section |= 0;
+            } 
+            else {
+                printf("Tried to convert non 1 or 0 to bit!\n");
+                exit(1);
+            }
+        }
+
+        // Find the index that is the same value as the encoded_section
+        // use all_luts[i][x] and the MAX_ROWS_PER_TABLE thing
+        unsigned int table_index = 0;
+        unsigned int table_num = 0;
+        table_index = encoded_section % MAX_ROWS_PER_TABLE;
+        table_num = encoded_section / MAX_ROWS_PER_TABLE;
+
+        //Set to the code_length at that index and print the symbol
+        unsigned int temp_bit_count = all_luts[table_num][table_index].code_length;
+        unsigned char symbol = all_luts[table_num][table_index].symbol;
+
+        fwrite(&symbol, sizeof(unsigned char), 1, fpDecoded);
+
+
+        // Testing
+        // printf("Checking table %d at index %d \n", table_num, table_index);
+        // printf("The code length is: %d and the character is: ",temp_bit_count);
+        // printf("%c",all_luts[table_num][table_index].symbol);
+
+        decoded_bit_count = decoded_bit_count + temp_bit_count;
+
+        // Shift the encoded message the code length of the symbol
+        for(int i = 0; i < (size - decoded_bit_count); i++){
+            encoded[i] = encoded[i + temp_bit_count];
+        }
+
+        //printf("\n barrel index: %d\n\n", encoded_section);
+
+
+        
+    }
+
+    
+    //fwrite(decoded, sizeof(unsigned char), index, fpDecoded);
+    fclose(fpEncoded);
+    fclose(fpDecoded);
+}
+
 int prologue(const char* sample_filename, unsigned char* symbols, float* probabilities, int* sample_size){
     FILE* fp = fopen(sample_filename, "r");  // File pointer
     unsigned char cur_symbol;                // Holds the current symbol 
@@ -297,13 +525,13 @@ int prologue(const char* sample_filename, unsigned char* symbols, float* probabi
             printf("Symbol count exceeded!\nAbort to avoid overflow!\n");
             exit(1);
         }                                                                       //
-        else if(symbolIndex(symbols, symbol_count, cur_symbol) == -1){
+        else if(symbolIndex(symbols, symbol_count, cur_symbol) == -1){          // If Symbol Doesnt Exist
             symbols[symbol_count] = cur_symbol;
             frequencies[symbol_count] = 1;
             symbol_count++;
         }
         else{                                                                   // 
-            frequencies[symbolIndex(symbols, symbol_count, cur_symbol)]  += 1;  
+            frequencies[symbolIndex(symbols, symbol_count, cur_symbol)]  += 1;  // If Symbol Exist, Increment Symbols Index
         }
     }
     
@@ -332,7 +560,7 @@ int main(){
     node_t* huffmanRoot;                     // Root node of the huffman tree
     huffCode_t asciiToHuffman[MAX_SYMBOLS];  // Huffman code of each symbol is stored at the index of its ascii encoding
     clock_t start, end;                      // Used for benchmarking
-
+    lut* all_luts[MAX_TABLES];               // An array to store all the look up tables
 
     /******************************** Initialization ********************************/
     stripFilename(sample_filename, huf_filename);      // Retrieve filename
@@ -360,6 +588,20 @@ int main(){
     start = clock();
     treeDecodingBitByBit(huf_filename, decoded_filename, huffmanRoot, huff_sample_size);  // No optimizations
     end = clock();
+
+    unsigned int code_max_bits = 0;
+    code_max_bits = lutCreation(huffmanRoot, symbol_count, all_luts);
+
+    lutDecoding(huf_filename, decoded_filename, all_luts, code_max_bits, huff_sample_size);
+
+    //testing
+    for(int t = 0; t < 2; t++){
+        for(int g = 0; g < MAX_ROWS_PER_TABLE; g++){
+            printf("look up table from all_luts[%d][%d] vals: %c and %d\n", t, g, all_luts[t][g].symbol, all_luts[t][g].code_length);
+        }
+    }
+
+    lutFreeAll(all_luts);
 
     /******************************** Prints Statements ********************************/
     printSymbolEncoding(symbols, symbol_count, asciiToHuffman);

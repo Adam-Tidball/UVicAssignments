@@ -3,7 +3,8 @@
 #define MAX_ENCODING_LENGTH 25000
 #define MAX_SYMBOLS 128 // ASCII
 #define MAX_CODE_LENGTH 16 
-
+#define MAX_TABLES 655 // For Max symbols min table size is over 50
+#define MAX_ROWS_PER_TABLE 9 // Sets the maximum number of rows per LUT
 
 // Structs
 typedef struct node_t {
@@ -20,9 +21,15 @@ typedef struct {
 
 typedef struct {
     unsigned char symbol;
-    unsigned char code[MAX_CODE_LENGTH]; // MAX_CDOE_LENGTH/8 when bitified
+    unsigned char code[MAX_CODE_LENGTH]; // MAX_CODE_LENGTH/8 when bitified
+    unsigned int bitCode; // Size is 16 bits... allows for 2^16 codes
     int code_length;
 } huffCode_t;
+
+typedef struct {
+    unsigned char symbol;
+    int code_length;
+} lut;
 
 // Functions 
 
