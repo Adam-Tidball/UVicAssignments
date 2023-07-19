@@ -260,54 +260,6 @@ void treeDecodingBitByBit(char* huf_filename, char* decoded_filename, node_t* ro
     fclose(fpDecoded);
 }
 
-void tree_decodingV1(int* encoded, node_t* root, unsigned char* decoded){
-    node_t* cur = root;
-    int i = 0;
-
-    while (*encoded != -1){
-        if(!isLeaf(cur)){
-            if(*encoded == 0){
-                cur = cur->leftChild;
-            }
-            else if(*encoded == 1){
-                cur = cur->rightChild;
-            }
-            encoded++;
-        }
-        else{
-            // store decoded symbol
-            decoded[i] = cur->symbol;
-            i++;
-            // Can be done up to a depth of m-1, where m = length of smallest code
-            if(*encoded == 0){
-                cur = root->leftChild;
-                encoded++;
-                if(*encoded == 0){
-                    cur = root->leftChild;
-                    
-                }
-                else{
-                    cur = root->rightChild; 
-                }
-                encoded++;
-            }
-            else{
-               cur = root->rightChild; 
-               encoded++;
-               if(*encoded == 0){
-                    cur = root->leftChild;
-                    
-                }
-                else{
-                    cur = root->rightChild; 
-                }
-                encoded++;
-            }
-        }
-    }
-    decoded[i] = cur->symbol;
-    i++;
-}
 
 void lutPopulate(node_t* root,  unsigned char* buff, unsigned int bit_count, unsigned int longest_code_exp, lut** all_luts, unsigned int* lut_num, unsigned int* row_count){
 
