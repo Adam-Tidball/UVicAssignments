@@ -318,19 +318,7 @@ void lutPopulate(node_t* root,  unsigned char* buff, unsigned int bit_count, uns
             }
             min_bit_val += 1;
 
-            // Testing 1
-            // printf("For the table: %d and index: %d The ", *lut_num, (min_bit_val-1) - ((*lut_num) * MAX_ROWS_PER_TABLE) );
-            // printf("Symbol \"%c\" was reached\n", root->symbol);
         }
-
-        // Testing 2
-        // printf("\nThe main bit_val is: ");
-        // for (int i = longest_code_exp - 1; i >= 0; i--) {
-        // unsigned int mask = 1u << i;    // Sets ith bit to 1 and rest to 0 for unsigned int literal
-        // putchar((bit_val & mask) ? '1' : '0');
-        // }
-        // printf("  and the symbol is: %c", root->symbol);
-        // printf("\nWith the extra zero this is number: %u\n", bit_val);
 
     }
 
@@ -338,19 +326,16 @@ void lutPopulate(node_t* root,  unsigned char* buff, unsigned int bit_count, uns
 
 
 
-int lutCreation(node_t* root, int alpha_size, lut** all_luts){
+int lutCreation(node_t* root, int alpha_size, lut** all_luts, unsigned int* tables_needed){
     // Start with making one large table
     unsigned int table_size = 1 << alpha_size; // Equivalent to 2^alpha_size
 
-    // Allocate memory for tables 
-    for(int i = 0; i < MAX_TABLES; i++){
-        lut* mem_per_table = malloc(sizeof(lut)*(MAX_ROWS_PER_TABLE + 1));
-        if (mem_per_table == NULL){
-            printf("Failed to allocate memory for look up table");
-            exit(1);
-        }
-        all_luts[i] = mem_per_table;
-    }
+    // TESTING
+    printf("\n\nalpha size is: %d\n", alpha_size);
+    printf("Table size is: %d\n",table_size);
+    printf("Current mem val being allocated: %d\n",(sizeof(lut)*(MAX_ROWS_PER_TABLE)));
+
+
 
     // Find the longest possible code length
     unsigned int longest_code = 1;
@@ -360,19 +345,38 @@ int lutCreation(node_t* root, int alpha_size, lut** all_luts){
         longest_code_exp++;    
     }
 
+    // Create the largest possible index
+    unsigned int max_index = (1u << longest_code_exp) - 1;
+    printf("\n\nvalue from the largest index is: %d\n\n", max_index);  
+
+    // Determine how many LUTS are needed
+    (*tables_needed) = (max_index / MAX_ROWS_PER_TABLE) + 1;  
+    printf("\n\nvalue for tables needed is: %d\n\n", *tables_needed);  
+   
+
+    // Allocate memory for required tables 
+    for(int i = 0; i < (*tables_needed); i++){
+        lut* mem_per_table = malloc(sizeof(lut)*(MAX_ROWS_PER_TABLE));
+        if (mem_per_table == NULL){
+            printf("Failed to allocate memory for look up table");
+            exit(1);
+        }
+        all_luts[i] = mem_per_table;
+    }
+
+    // Populate the tables with the symbols from the tree
     unsigned char buff[100];
     unsigned int lut_num = 0;
     unsigned int row_counter = 0;
-
     lutPopulate(root, buff , 0, longest_code_exp, all_luts, &lut_num, &row_counter);
 
     return longest_code_exp;
 
 }
 
-void lutFreeAll( lut** all_luts){
+void lutFreeAll( lut** all_luts, unsigned int* tables_needed){
     // Interates over all possible tables and frees memory
-    for(int i = 0; i < MAX_TABLES; i++){
+    for(int i = 0; i < (*tables_needed); i++){
         free(all_luts[i]);
     }
 }
@@ -400,7 +404,7 @@ void lutDecoding(char* huf_filename, char* decoded_filename, lut** all_luts, con
 
 
     printf("\n TESTING \n");
-    for(int i = 0; i <= size; i++) {
+    for(int i = 0; i < size; i++) {
         printf("%u", encoded[i]);
     }
     printf("\n ");
@@ -437,27 +441,15 @@ void lutDecoding(char* huf_filename, char* decoded_filename, lut** all_luts, con
 
         fwrite(&symbol, sizeof(unsigned char), 1, fpDecoded);
 
-
-        // Testing
-        // printf("Checking table %d at index %d \n", table_num, table_index);
-        // printf("The code length is: %d and the character is: ",temp_bit_count);
-        // printf("%c",all_luts[table_num][table_index].symbol);
-
         decoded_bit_count = decoded_bit_count + temp_bit_count;
 
         // Shift the encoded message the code length of the symbol
         for(int i = 0; i < (size - decoded_bit_count); i++){
             encoded[i] = encoded[i + temp_bit_count];
         }
-
-        //printf("\n barrel index: %d\n\n", encoded_section);
-
-
         
     }
 
-    
-    //fwrite(decoded, sizeof(unsigned char), index, fpDecoded);
     fclose(fpEncoded);
     fclose(fpDecoded);
 }
@@ -513,6 +505,7 @@ int main(){
     huffCode_t asciiToHuffman[MAX_SYMBOLS];  // Huffman code of each symbol is stored at the index of its ascii encoding
     clock_t start, end;                      // Used for benchmarking
     lut* all_luts[MAX_TABLES];               // An array to store all the look up tables
+    unsigned int tables_needed = 0;             // Used to keep track of the LUTs needed for an alphabet
 
     /******************************** Initialization ********************************/
     stripFilename(sample_filename, huf_filename);      // Retrieve filename
@@ -541,10 +534,10 @@ int main(){
     treeDecodingBitByBit(huf_filename, decoded_filename, huffmanRoot, huff_sample_size);  // No optimizations
     end = clock();
 
-    unsigned int code_max_bits = 0;
-    code_max_bits = lutCreation(huffmanRoot, symbol_count, all_luts);
+    unsigned int max_code_bits = 0;
+    max_code_bits = lutCreation(huffmanRoot, symbol_count, all_luts, &tables_needed);
 
-    lutDecoding(huf_filename, decoded_filename, all_luts, code_max_bits, huff_sample_size);
+    lutDecoding(huf_filename, decoded_filename, all_luts, max_code_bits, huff_sample_size);
 
     //testing
     for(int t = 0; t < 2; t++){
@@ -553,7 +546,7 @@ int main(){
         }
     }
 
-    lutFreeAll(all_luts);
+    lutFreeAll(all_luts, &tables_needed);
 
     /******************************** Prints Statements ********************************/
     printSymbolEncoding(symbols, symbol_count, asciiToHuffman);
