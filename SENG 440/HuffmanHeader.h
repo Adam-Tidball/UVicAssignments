@@ -1,10 +1,14 @@
+#ifndef _HUFFMAN_HEADER_
+#define _HUFFMAN_HEADER_
 // Macros
-#define MAX_FILE_LENGTH 10000
-#define MAX_ENCODING_LENGTH 25000
-#define MAX_SYMBOLS 128 // ASCII
-#define MAX_CODE_LENGTH 16 
-#define MAX_TABLES 655 // For Max symbols min table size is over 50
-#define MAX_ROWS_PER_TABLE 9 // Sets the maximum number of rows per LUT
+#define MAX_FILE_LENGTH 25000      // Constraint for input file
+#define MAX_ENCODING_LENGTH 25000  // Constraint for encoded file
+#define MAX_PATH_LENGTH 256        // Constraint for file path length
+#define MAX_FILENAME_LENGTH 64     // Constraint for filename 
+#define MAX_SYMBOLS 128            // ASCII (Set to 256 for Extended ASCII)
+#define MAX_CODE_LENGTH 16         // Should be a multiple of 8
+#define MAX_TABLES 655             // For Max symbols min table size is over 50
+#define MAX_ROWS_PER_TABLE 9       // Sets the maximum number of rows per LUT
 
 // Structs
 typedef struct node_t {
@@ -21,8 +25,7 @@ typedef struct {
 
 typedef struct {
     unsigned char symbol;
-    unsigned char code[MAX_CODE_LENGTH]; // MAX_CODE_LENGTH/8 when bitified
-    unsigned int bitCode; // Size is 16 bits... allows for 2^16 codes
+    unsigned short bitcode;
     int code_length;
 } huffCode_t;
 
@@ -37,6 +40,7 @@ typedef struct {
 node_t* allocateNewNode(unsigned char symbol, float probability){
     // Dynamically allocate memory for a new node 
     node_t* temp = (node_t*)malloc(sizeof(node_t));
+    // printf("Memory Allocated: %p\n", temp);
     temp->leftChild = NULL;
     temp->rightChild = NULL;
     temp->symbol = symbol;
@@ -50,7 +54,7 @@ minHeap_t* createMinHeap(int maxNodes){
  
     minHeap->numNodes = 0;
     minHeap->maxNodes = maxNodes;
- 
+    
     minHeap->treeArray = (node_t**)malloc(minHeap->maxNodes * sizeof(node_t*));
     return minHeap;
 }
@@ -133,7 +137,7 @@ minHeap_t* initMinHeap(unsigned char alph[], float prob[], int size){
     }
  
     minHeap->numNodes = numLeaves;
-    buildMinHeap(minHeap);
+    buildMinHeap(minHeap);  // TODO: Get rid of this function call as it's only used once
  
     return minHeap;
 }
@@ -161,9 +165,16 @@ node_t* buildHuffmanEncTree(unsigned char alph[], float prob[], int size){
  
         insertMinHeap(minHeap, top);
     }
- 
-    // Pop last node
-    return popMin(minHeap);
+
+    minHeap_t* lost_soul = minHeap;
+    node_t* root = popMin(minHeap);
+
+    // Release the no longer needed min-heap and its followers, from the callous chains of existence that bind us
+    free(lost_soul->treeArray);
+    free(lost_soul);
+
+    // Return the root of the Huffman tree
+    return root;
 }
 
 
@@ -188,10 +199,23 @@ int symbolIndex(unsigned char* symbols, int symbol_count, unsigned char symbol){
     return -1;
 }
 
-void stripFilename(char* filename, char* destination){
-    char strip[50];
+void stripFilename(char* filename, char* destination) {
+    char strip[64];
     char* tok;
-    strncpy(strip, filename, 50);
+    strncpy(strip, filename, 96);
     tok = strtok(strip, ".");
-    strncpy(destination, tok, 50);
+    strncpy(destination, tok, 96);
 }
+
+void freeHuffmanTree(node_t* node) {
+    if (node == NULL) {
+        return;
+    }
+
+    freeHuffmanTree(node->leftChild);
+    freeHuffmanTree(node->rightChild);
+    
+    free(node);
+}
+
+#endif
