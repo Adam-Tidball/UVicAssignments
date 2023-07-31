@@ -6,6 +6,8 @@
 #include <assert.h>
 #include <unistd.h>
 #include "HuffmanHeader.h"
+#include <stdint.h>
+#include <math.h>
 
 
 
@@ -124,9 +126,9 @@ int generateEncodedFileBitified(const char* sample_filename, const char* encoded
                 }
             }
     }
-    
+
     fwrite(&bit_count, sizeof(unsigned int), 1,  fp_compressed);                  // First 4 bytes of the compressed file contain the compressed size in bits (necessary for decoding last symbol)
-    fwrite(encodedSample, sizeof(unsigned short), cur_Index,  fp_compressed);     // Rest of file contains encoding 
+    fwrite(encodedSample, sizeof(unsigned short), cur_Index + 1,  fp_compressed);     // Rest of file contains encoding - including incomplete index
 
     fclose(fp_sample);
     fclose(fp_compressed);
@@ -195,7 +197,7 @@ void treeDecodingBitByBit(char* huf_filename, char* decompressed_filename, node_
     
     fread(&compressed_bits, sizeof(unsigned int), 1, fp_compressed);           // Retrieve the # of compressed bits
     fread(compressed, sizeof(unsigned short), MAX_ENCODING_LENGTH/sizeof(unsigned short), fp_compressed);  // Retrieve compressed data 
-    
+
     for (size_t i = 0; i < compressed_bits; i++) {               // Iterate through 1 encoded bit per loop iteration
         if (!isLeaf(cur)) {
             if (compressed[cur_Index] & (1U << bit_position)) {  //
@@ -222,8 +224,7 @@ void treeDecodingBitByBit(char* huf_filename, char* decompressed_filename, node_
         decompressed[num_symbols] = cur->symbol;
         num_symbols++;
     }
-    
-    
+
     fwrite(decompressed, sizeof(unsigned char), num_symbols, fp_decompressed);
     fclose(fp_compressed);
     fclose(fp_decompressed);
@@ -302,29 +303,20 @@ void lutPopulate(node_t* root,  unsigned char* buff, unsigned int bit_count, uns
         // printf("\nWith the extra zero this is number: %u\n", bit_val);
 
     }
-
 }
 
-int lutCreation(node_t* root, unsigned alpha_size, lut** all_luts, unsigned int* tables_needed){
-    // Start with making one large table
-    unsigned table_size = 1 << alpha_size; // Equivalent to 2^alpha_size
+void lutCreation(node_t* root, unsigned alpha_size, lut** all_luts, unsigned int* tables_needed, unsigned int longest_code_exp){
     // TESTING	
     printf("\n\nalpha size is: %d\n", alpha_size);	
-    printf("Table size is: %d\n",table_size);	
     printf("Current mem val being allocated: %ld\n",(sizeof(lut)*(MAX_ROWS_PER_TABLE)));	
-    // Find the longest possible code length	
-    unsigned int longest_code = 1;	
-    int longest_code_exp = 0;	
-    while( longest_code <= alpha_size){	
-        longest_code <<= 1;	
-        longest_code_exp++;    	
-    }	
+    printf("value for the largest code exponenet: %d\n", longest_code_exp);
+
     // Create the largest possible index	
     unsigned int max_index = (1u << longest_code_exp) - 1;	
-    printf("\n\nvalue from the largest index is: %d\n\n", max_index);  	
+    printf("value from the largest index is: %d\n", max_index);  	
     // Determine how many LUTS are needed	
     (*tables_needed) = (max_index / MAX_ROWS_PER_TABLE) + 1;  	
-    printf("\n\nvalue for tables needed is: %d\n\n", *tables_needed);  	
+    printf("value for tables needed is: %d\n", *tables_needed);  	
    	
     // Allocate memory for required tables 	
     for(int i = 0; i < (*tables_needed); i++){	
@@ -339,8 +331,13 @@ int lutCreation(node_t* root, unsigned alpha_size, lut** all_luts, unsigned int*
     unsigned char buff[100];	
     unsigned int lut_num = 0;	
     unsigned int row_counter = 0;	
+
+    printf("done in lutCreation\n");
+
     lutPopulate(root, buff , 0, longest_code_exp, all_luts, &lut_num, &row_counter);	
-    return longest_code_exp;	
+
+    printf("done in lutPopulate\n");
+    
 }
 
 void lutFreeAll( lut** all_luts, unsigned int* tables_needed){	
@@ -350,65 +347,97 @@ void lutFreeAll( lut** all_luts, unsigned int* tables_needed){
     }	
 }
 
-void lutDecoding(char* huf_filename, char* decoded_filename, lut** all_luts, const int barrel_shifter, const int size) {
-    FILE* fpEncoded = fopen(huf_filename, "r");
-    if(fpEncoded == NULL){
+void lutDecoding(char* huf_filename, char* decoded_filename, lut** all_luts, const int barrel_shifter) {
+    FILE* fp_compressed = fopen(huf_filename, "rb");
+    if(fp_compressed == NULL){
         printf("Failed to open encoded file!\n");
         exit(1);
     }
 
-        FILE* fpDecoded = fopen(decoded_filename, "a");
-    if(fpDecoded == NULL){
-        printf("Failed to create decoded file!\n");
+        FILE* fp_decompressed = fopen(decoded_filename, "a");
+    if(fp_decompressed == NULL){
+        printf("Failed to open decoded file!\n");
         exit(1);
     }
 
     char str[] = "\n\nLUT Decoding Below:\n";
-    fwrite(str, sizeof(str) - sizeof(char), 1, fpDecoded);
+    fwrite(str, sizeof(str) - sizeof(char), 1, fp_decompressed);
 
-    // Go through the encoded file by barrel_shifter length sections 
+    // Go through the encoded file by barrel_shifter length sections (longest code length)
     // and search each table for that index
-    unsigned char encoded[size];
-    fread(encoded, sizeof(unsigned char), size, fpEncoded);
+    unsigned int compressed_bits = 0;       // # of bits in compressed data
+    fread(&compressed_bits, sizeof(unsigned int), 1, fp_compressed);  
+    printf("\ncompressed bits: %d\n",compressed_bits);
+    unsigned short encoded[compressed_bits];
+    fread(encoded, sizeof(unsigned short), compressed_bits/sizeof(unsigned short), fp_compressed);
 
-
-    printf("\n TESTING \n");
-    for(int i = 0; i <= size; i++) {
-        printf("%u", encoded[i]);
+    //TESTING
+    int x = 0;
+    int y = 0;
+    long long temp = 0;
+    int buf = compressed_bits / 16;
+    printf("\n");
+    for (int i = 0; i < compressed_bits; i++){
+        temp << 1;
+        if(encoded[x] & (1U << (i + (16 * x)) )){       // "i + (16 * x)" used to skip over two empty bytes
+            temp |= 1;
+            printf("1");
+        } else {
+            temp |= 0;
+            printf("0");
+        }
+        y++;
+        if(y >= 16){
+            y = 0;
+            x++;
+        }
     }
-    printf("\n ");
+
+
+
+    printf("\n\nBarrel shifter size: %d\n", barrel_shifter);
+
 
     int decoded_bit_count = 0;
-
-    while(decoded_bit_count < size){
-        unsigned int encoded_section = 0;
-        // Get barrel shifter section of encoded message     
-        for (int i = 0; i < barrel_shifter; i++) {
-            encoded_section <<= 1;
-            if (encoded[i]  == 1) {
-                encoded_section |= 1;
-            } 
-            else if(encoded[i] == 0) {
-                encoded_section |= 0;
-            } 
-            else {
-                printf("Tried to convert non 1 or 0 to bit!\n");
-                exit(1);
+    int cur_index = 0;
+    int bit_pos = 0;
+    while(decoded_bit_count < compressed_bits){     // Iterate through until all bits are decoded
+    
+    // Get barrel shifter size section of encoded message     
+        unsigned int encoded_section = 0;       
+        printf("barrel: ");
+        for (int i = decoded_bit_count; i < barrel_shifter + decoded_bit_count; i++) {
+            //encoded_section << 1;
+            if (encoded[cur_index] & (1U << (i + (16 * cur_index)))) {
+                encoded_section |= 1u << ((barrel_shifter - 1) - (i - decoded_bit_count));
+                printf("1");
+            } else {
+                encoded_section |= 0 << ((barrel_shifter - 1) - (i - decoded_bit_count));
+                printf("0");
+            }
+            bit_pos++;
+            if(bit_pos >= 16){
+                bit_pos = 0;
+                cur_index++;
             }
         }
 
+
+
         // Find the index that is the same value as the encoded_section
-        // use all_luts[i][x] and the MAX_ROWS_PER_TABLE thing
+        // use all_luts[i][x] and the MAX_ROWS_PER_TABLE variable
         unsigned int table_index = 0;
         unsigned int table_num = 0;
         table_index = encoded_section % MAX_ROWS_PER_TABLE;
         table_num = encoded_section / MAX_ROWS_PER_TABLE;
+        printf("   barrel value: %d   barrel index: %d     ",encoded_section, cur_index);
+        printf("   table[%d][%d] searched   ", table_num, table_index);
 
         //Set to the code_length at that index and print the symbol
         unsigned int temp_bit_count = all_luts[table_num][table_index].code_length;
         unsigned char symbol = all_luts[table_num][table_index].symbol;
 
-        fwrite(&symbol, sizeof(unsigned char), 1, fpDecoded);
+        fwrite(&symbol, sizeof(unsigned char), 1, fp_decompressed);
 
 
         // Testing
@@ -416,23 +445,31 @@ void lutDecoding(char* huf_filename, char* decoded_filename, lut** all_luts, con
         // printf("The code length is: %d and the character is: ",temp_bit_count);
         // printf("%c",all_luts[table_num][table_index].symbol);
 
+        bit_pos = bit_pos - (barrel_shifter - temp_bit_count);      // update the bit position to account for not decoded bits
+        if (bit_pos < 0) {      // if the bit_pos is negative we need to go back to previous index
+            cur_index--;
+            bit_pos = 16 + bit_pos;
+        }
+        
         decoded_bit_count = decoded_bit_count + temp_bit_count;
 
+        printf("    code found: %c  code length: %d   total bits decoded: %d",symbol, temp_bit_count, decoded_bit_count);
+
         // Shift the encoded message the code length of the symbol
-        for(int i = 0; i < (size - decoded_bit_count); i++){
-            encoded[i] = encoded[i + temp_bit_count];
-        }
+        //encoded >> temp_bit_count;
+        // for(int i = 0; i < (compressed_bits - decoded_bit_count); i++){
+        //     encoded[i] = encoded[i + temp_bit_count];
+        // }
 
         //printf("\n barrel index: %d\n\n", encoded_section);
 
-
+        printf("\n");
         
     }
 
-    
-    //fwrite(decoded, sizeof(unsigned char), index, fpDecoded);
-    fclose(fpEncoded);
-    fclose(fpDecoded);
+    //fwrite(decoded, sizeof(unsigned char), index, fp_decompressed);
+    fclose(fp_compressed);
+    fclose(fp_decompressed);
 }
 
 int prologue(const char* original_filename, unsigned char* symbols, float* probabilities, unsigned* sample_size) {
@@ -564,16 +601,18 @@ int main(int argc, char* argv[]) {
 
     /******************************** Decoding ********************************/
     treeDecodingBitByBit(compressed_filename, decompressed_filename, huffmanRoot);  // Decode the compressed file in a bit-by-bit manner
-    exit(0);
+    //exit(0);    
 
     unsigned code_max_bits = 0;
-    code_max_bits = lutCreation(huffmanRoot, symbol_count, all_luts, &tables_needed);
+    code_max_bits = maxTreeDepth(huffmanRoot);
 
-    lutDecoding(compressed_filename, decompressed_filename, all_luts, code_max_bits, compressed_size);
+    lutCreation(huffmanRoot, symbol_count, all_luts, &tables_needed, code_max_bits);
+
+    lutDecoding(compressed_filename, decompressed_filename, all_luts, code_max_bits);
 
     //testing
     for(int t = 0; t < 2; t++){
-        for(int g = 0; g < MAX_ROWS_PER_TABLE; g++){
+        for(int g = 0; g < 2; g++){
             printf("look up table from all_luts[%d][%d] vals: %c and %d\n", t, g, all_luts[t][g].symbol, all_luts[t][g].code_length);
         }
     }

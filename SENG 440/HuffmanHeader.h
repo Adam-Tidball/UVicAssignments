@@ -8,7 +8,7 @@
 #define MAX_SYMBOLS 128            // ASCII (Set to 256 for Extended ASCII)
 #define MAX_CODE_LENGTH 16         // Should be a multiple of 8
 #define MAX_TABLES 655             // For Max symbols min table size is over 50
-#define MAX_ROWS_PER_TABLE 9       // Sets the maximum number of rows per LUT
+#define MAX_ROWS_PER_TABLE 50       // Sets the maximum number of rows per LUT
 
 // Structs
 typedef struct node_t {
@@ -216,6 +216,17 @@ void freeHuffmanTree(node_t* node) {
     freeHuffmanTree(node->rightChild);
     
     free(node);
+}
+
+int maxTreeDepth(node_t* root) {
+    if (root == NULL) {
+        return 0;
+    } else {
+        int leftDepth = maxTreeDepth(root->leftChild);
+        int rightDepth = maxTreeDepth(root->rightChild);
+        int max = (leftDepth > rightDepth) ? leftDepth : rightDepth;
+        return max + 1;
+    }
 }
 
 #endif
