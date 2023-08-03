@@ -31,8 +31,8 @@ void printCodesBitified(node_t* root, unsigned char* buff, int bit_count, huffCo
         unsigned char ascii_index = (unsigned char) root->symbol;  // Cast the symbol to unisgned char
         asciiToHuffman[ascii_index].symbol = root->symbol;         // Add the symbol and, 
         asciiToHuffman[ascii_index].code_length = bit_count;       // the length of its encoding to the table
-
-        for (int i = 0; i < bit_count; i++) {
+        size_t i;
+        for (i = 0; i < bit_count; i++) {
             asciiToHuffman[ascii_index].bitcode +=  buff[i] * (1U << i);  // Represent the encoding with the right amount of bits
         }
     } 
@@ -42,7 +42,8 @@ void printCodesBitified(node_t* root, unsigned char* buff, int bit_count, huffCo
 void generatehuffmanCodesBitified(node_t* root, huffCode_t* asciiToHuffman) {
     // Initialize each symbol in the table such that its index matches its ascii encoding (i.e. asciiToHuffman[65].symbol = 'A')
     unsigned char buff[128];
-    for(int i = 0; i < MAX_SYMBOLS; i++){
+    int i;
+    for(i = 0; i < MAX_SYMBOLS; i++){
         asciiToHuffman[i].symbol = (unsigned char) i;
         asciiToHuffman[i].bitcode = 0;
     }
@@ -58,7 +59,8 @@ void printSymbolEncodingBitified(unsigned char* symbols, int symbol_count,  huff
                                   "DC1", "DC2","DC3", "DC4", "NAK", "SYN", "ETB", "CAN", 
                                   "EM", "SUB", "ESC", "FS", "GS", "RS", "US"};
 
-    for (size_t i = 0; i < MAX_SYMBOLS; i++) {
+    size_t i;
+    for (i = 0; i < MAX_SYMBOLS; i++) {
         symbol = asciiToHuffman[i].symbol;
         if (symbolIndex(symbols, symbol_count, symbol) != -1) {
             // Print symbol
@@ -80,8 +82,8 @@ void printSymbolEncodingBitified(unsigned char* symbols, int symbol_count,  huff
 
             unsigned char code[MAX_CODE_LENGTH] = {0};
 
-            
-            for (size_t j = 0; j < asciiToHuffman[i].code_length; j++) {
+            size_t j;
+            for (j = 0; j < asciiToHuffman[i].code_length; j++) {
                 if (asciiToHuffman[i].bitcode & (1U << j)) {
                     code[j] = '1';
                 }
@@ -111,10 +113,11 @@ int generateEncodedFileBitified(const char* sample_filename, const char* encoded
     assert(fp_compressed != NULL);
    
     sample_size = fread(sample, sizeof(unsigned char), MAX_FILE_LENGTH/sizeof(unsigned char), fp_sample);  // Retrieve original data
-
-    for (size_t i = 0; i < sample_size; i++) {                                      // Iterate 1 symbol per loop iteration
-        ascii_index = (unsigned char) sample[i];                                    // Get ASCII code for current symbol
-            for (size_t j = 0; j < asciiToHuffman[ascii_index].code_length; j++) {  // Iterate through code length
+    size_t i;
+    for (i = 0; i < sample_size; i++) {                                      // Iterate 1 symbol per loop iteration
+        ascii_index = (unsigned char) sample[i];  
+            size_t j;                                  // Get ASCII code for current symbol
+            for (j = 0; j < asciiToHuffman[ascii_index].code_length; j++) {  // Iterate through code length
                 if (asciiToHuffman[ascii_index].bitcode & (1U << j)) {              // If a bit is set in the bitcode, then
                     encodedSample[cur_Index] |= (1U << bit_position);               // Set the matching bit in the encoding 
                 }
@@ -136,51 +139,6 @@ int generateEncodedFileBitified(const char* sample_filename, const char* encoded
     return bit_count;  // Returns # of encoded bits
 }
 
-// Huffman decoding
-void brute_decode_text(int* encodedText, huffCode_t* asciiToHuffman) {
-    // Get encoded Text Length
-    printf("\n");
-    int encoded_text_length = 0;
-    for(int x = 0; encodedText[x] != -1; x++) {
-        printf("%d",encodedText[x]);
-        encoded_text_length = x;
-    }
-    printf("\n test \n");    
-    
-    
-    // Find longest code length  
-    int code_length = 0;
-    for(int j = 0; j < MAX_SYMBOLS; j++){
-        if(code_length < asciiToHuffman[j].code_length){
-            // add all the bit code values to array
-            code_length = asciiToHuffman[j].code_length;
-        }
-    }
-
-    // Test
-    printf("longest code: %d", code_length);
-
-    // For every symbol code pair in the table
-    // check if the code exists in the code_length section
-    //while(encodedText[0] != -1){
-        for(int y = 0; y < MAX_SYMBOLS; y++){
-            for(int i = 0; i < code_length; i++){
-                if(asciiToHuffman[y].bitcode != encodedText[i]){ // if no match
-                    break;
-                } else if(asciiToHuffman[y].code_length == i){ // if match char & length
-                    printf("CHAR FOUND: %c", asciiToHuffman[y].symbol);
-                    //char found so remove the code
-                    for(int d = 0; (d+i) <= encoded_text_length; d++){
-                        encodedText[d] = encodedText[d+i];
-                    }
-                } else { // if match char
-                    //printf("match\n");
-                }
-            }    
-        }
-    //}
-}
-
 void treeDecodingBitByBit(char* huf_filename, char* decompressed_filename, node_t* root) {
     node_t* cur = root;                                         // Cursor for traversing Huffman tree
     unsigned short compressed[MAX_ENCODING_LENGTH];             // Contains compressed data
@@ -197,8 +155,8 @@ void treeDecodingBitByBit(char* huf_filename, char* decompressed_filename, node_
     
     fread(&compressed_bits, sizeof(unsigned int), 1, fp_compressed);           // Retrieve the # of compressed bits
     fread(compressed, sizeof(unsigned short), MAX_ENCODING_LENGTH/sizeof(unsigned short), fp_compressed);  // Retrieve compressed data 
-
-    for (size_t i = 0; i < compressed_bits; i++) {               // Iterate through 1 encoded bit per loop iteration
+    size_t i;
+    for (i = 0; i < compressed_bits; i++) {               // Iterate through 1 encoded bit per loop iteration
         if (!isLeaf(cur)) {
             if (compressed[cur_Index] & (1U << bit_position)) {  //
                 cur = cur->rightChild;
@@ -252,7 +210,8 @@ void lutPopulate(node_t* root,  unsigned char* buff, unsigned int bit_count, uns
 
         // The buffer is the start of the index for the symbol and code_length 
         unsigned int bit_val = 0;        
-        for (int i = 0; i < bit_count; i++) {
+        size_t i;
+        for (i = 0; i < bit_count; i++) {
             bit_val <<= 1;
             if (buff[i]  == 1) {
                 bit_val |= 1;
@@ -270,8 +229,8 @@ void lutPopulate(node_t* root,  unsigned char* buff, unsigned int bit_count, uns
         unsigned int min_bit_val = bit_val;
         unsigned int max_bit_val = bit_val;
         unsigned int bit_dif = longest_code_exp - bit_count;
-
-        for(int i = 0; i < bit_dif; i++) {
+        size_t j;
+        for(j = 0; j < bit_dif; j++) {
             min_bit_val <<= 1;
             min_bit_val |= 0;
             max_bit_val <<= 1;
@@ -306,20 +265,21 @@ void lutPopulate(node_t* root,  unsigned char* buff, unsigned int bit_count, uns
 }
 
 void lutCreation(node_t* root, unsigned alpha_size, lut** all_luts, unsigned int* tables_needed, unsigned int longest_code_exp){
-    // TESTING	
-    printf("\n\nalpha size is: %d\n", alpha_size);	
-    printf("Current mem val being allocated: %ld\n",(sizeof(lut)*(MAX_ROWS_PER_TABLE)));	
-    printf("value for the largest code exponenet: %d\n", longest_code_exp);
+    // // TESTING	
+    // printf("\n\nalpha size is: %d\n", alpha_size);	
+    // printf("Current mem val being allocated: %ld\n",(sizeof(lut)*(MAX_ROWS_PER_TABLE)));	
+    // printf("value for the largest code exponenet: %d\n", longest_code_exp);
 
     // Create the largest possible index	
     unsigned int max_index = (1u << longest_code_exp) - 1;	
-    printf("value from the largest index is: %d\n", max_index);  	
+    //printf("value from the largest index is: %d\n", max_index);  	
     // Determine how many LUTS are needed	
     (*tables_needed) = (max_index / MAX_ROWS_PER_TABLE) + 1;  	
-    printf("value for tables needed is: %d\n", *tables_needed);  	
+    //printf("value for tables needed is: %d\n", *tables_needed);  	
    	
     // Allocate memory for required tables 	
-    for(int i = 0; i < (*tables_needed); i++){	
+    size_t i;
+    for(i = 0; i < (*tables_needed); i++){	
         lut* mem_per_table = malloc(sizeof(lut)*(MAX_ROWS_PER_TABLE));	
         if (mem_per_table == NULL){	
             printf("Failed to allocate memory for look up table");	
@@ -332,17 +292,14 @@ void lutCreation(node_t* root, unsigned alpha_size, lut** all_luts, unsigned int
     unsigned int lut_num = 0;	
     unsigned int row_counter = 0;	
 
-    printf("done in lutCreation\n");
-
     lutPopulate(root, buff , 0, longest_code_exp, all_luts, &lut_num, &row_counter);	
-
-    printf("done in lutPopulate\n");
     
 }
 
 void lutFreeAll( lut** all_luts, unsigned int* tables_needed){	
     // Interates over all possible tables and frees memory	
-    for(int i = 0; i < (*tables_needed); i++){	
+    size_t i;
+    for(i = 0; i < (*tables_needed); i++){	
         free(all_luts[i]);	
     }	
 }
@@ -354,7 +311,7 @@ void lutDecoding(char* huf_filename, char* decoded_filename, lut** all_luts, con
         exit(1);
     }
 
-        FILE* fp_decompressed = fopen(decoded_filename, "a");
+    FILE* fp_decompressed = fopen(decoded_filename, "a");
     if(fp_decompressed == NULL){
         printf("Failed to open decoded file!\n");
         exit(1);
@@ -367,24 +324,29 @@ void lutDecoding(char* huf_filename, char* decoded_filename, lut** all_luts, con
     // and search each table for that index
     unsigned int compressed_bits = 0;       // # of bits in compressed data
     fread(&compressed_bits, sizeof(unsigned int), 1, fp_compressed);  
-    printf("\ncompressed bits: %d\n",compressed_bits);
+    //printf("\ncompressed bits: %d\n",compressed_bits);
     unsigned short encoded[compressed_bits];
-    fread(encoded, sizeof(unsigned short), compressed_bits/sizeof(unsigned short), fp_compressed);
+    fread(encoded, sizeof(unsigned short), compressed_bits/sizeof(unsigned short), fp_compressed); // change 3rd sec to max_encoding length??
+
+    //Testing
+    int ahhh = sizeof(unsigned short);
+    printf("\n\nSize: %d\n\n",ahhh);
 
     //TESTING
     int x = 0;
     int y = 0;
     long long temp = 0;
     int buf = compressed_bits / 16;
-    printf("\n");
-    for (int i = 0; i < compressed_bits; i++){
+    //printf("\n");
+    size_t i;
+    for (i = 0; i < compressed_bits; i++){
         temp << 1;
         if(encoded[x] & (1U << (i + (16 * x)) )){       // "i + (16 * x)" used to skip over two empty bytes
             temp |= 1;
-            printf("1");
+            //printf("1");
         } else {
             temp |= 0;
-            printf("0");
+            //printf("0");
         }
         y++;
         if(y >= 16){
@@ -395,7 +357,7 @@ void lutDecoding(char* huf_filename, char* decoded_filename, lut** all_luts, con
 
 
 
-    printf("\n\nBarrel shifter size: %d\n", barrel_shifter);
+    //printf("\n\nBarrel shifter size: %d\n", barrel_shifter);
 
 
     int decoded_bit_count = 0;
@@ -405,15 +367,16 @@ void lutDecoding(char* huf_filename, char* decoded_filename, lut** all_luts, con
     
     // Get barrel shifter size section of encoded message     
         unsigned int encoded_section = 0;       
-        printf("barrel: ");
-        for (int i = decoded_bit_count; i < barrel_shifter + decoded_bit_count; i++) {
+        //printf("barrel: ");
+        size_t j;
+        for (j = decoded_bit_count; j < barrel_shifter + decoded_bit_count; j++) {
             //encoded_section << 1;
-            if (encoded[cur_index] & (1U << (i + (16 * cur_index)))) {
-                encoded_section |= 1u << ((barrel_shifter - 1) - (i - decoded_bit_count));
-                printf("1");
+            if (encoded[cur_index] & (1U << (j + (16 * cur_index)))) {
+                encoded_section |= 1u << ((barrel_shifter - 1) - (j - decoded_bit_count));
+                //printf("1");
             } else {
-                encoded_section |= 0 << ((barrel_shifter - 1) - (i - decoded_bit_count));
-                printf("0");
+                encoded_section |= 0 << ((barrel_shifter - 1) - (j - decoded_bit_count));
+                //printf("0");
             }
             bit_pos++;
             if(bit_pos >= 16){
@@ -430,8 +393,8 @@ void lutDecoding(char* huf_filename, char* decoded_filename, lut** all_luts, con
         unsigned int table_num = 0;
         table_index = encoded_section % MAX_ROWS_PER_TABLE;
         table_num = encoded_section / MAX_ROWS_PER_TABLE;
-        printf("   barrel value: %d   barrel index: %d     ",encoded_section, cur_index);
-        printf("   table[%d][%d] searched   ", table_num, table_index);
+        //printf("   barrel value: %d   barrel index: %d     ",encoded_section, cur_index);
+        //printf("   table[%d][%d] searched   ", table_num, table_index);
 
         //Set to the code_length at that index and print the symbol
         unsigned int temp_bit_count = all_luts[table_num][table_index].code_length;
@@ -453,7 +416,7 @@ void lutDecoding(char* huf_filename, char* decoded_filename, lut** all_luts, con
         
         decoded_bit_count = decoded_bit_count + temp_bit_count;
 
-        printf("    code found: %c  code length: %d   total bits decoded: %d",symbol, temp_bit_count, decoded_bit_count);
+        //printf("    code found: %c  code length: %d   total bits decoded: %d",symbol, temp_bit_count, decoded_bit_count);
 
         // Shift the encoded message the code length of the symbol
         //encoded >> temp_bit_count;
@@ -463,7 +426,7 @@ void lutDecoding(char* huf_filename, char* decoded_filename, lut** all_luts, con
 
         //printf("\n barrel index: %d\n\n", encoded_section);
 
-        printf("\n");
+        //printf("\n");
         
     }
 
@@ -473,7 +436,6 @@ void lutDecoding(char* huf_filename, char* decoded_filename, lut** all_luts, con
 }
 
 int prologue(const char* original_filename, unsigned char* symbols, float* probabilities, unsigned* sample_size) {
-    printf("%s\n", original_filename);
     FILE* fp = fopen(original_filename, "r");  // File pointer
     if (fp == NULL){
         printf("Failed to open file!\nExiting Program!\n");
@@ -485,8 +447,8 @@ int prologue(const char* original_filename, unsigned char* symbols, float* proba
     unsigned char sample[MAX_FILE_LENGTH];   // Buffer for sample text
     assert(fp != NULL);
     *sample_size = fread(sample, sizeof(unsigned char), MAX_FILE_LENGTH, fp);  // Retrieve sample text
-
-    for (int i = 0; i < *sample_size; i++) {                                    // Iterates through sample text 1 char at a time
+    size_t i;
+    for (i = 0; i < *sample_size; i++) {                                    // Iterates through sample text 1 char at a time
         cur_symbol = sample[i];
         if (symbol_count > MAX_SYMBOLS) {                                       // If # of symbols exceeds MAX_SYMBOLS, 
             printf("Symbol count exceeded!\n");                                 // then abort
@@ -504,9 +466,9 @@ int prologue(const char* original_filename, unsigned char* symbols, float* proba
     
     double inv_sample_size = *sample_size;  
     inv_sample_size = 1/inv_sample_size;  // Precomputed for efficiency
-    
-    for (int i = 0; i < symbol_count; i++) {
-        probabilities[i] = frequencies[i]*inv_sample_size;
+    size_t j;
+    for (j = 0; j < symbol_count; j++) {
+        probabilities[j] = frequencies[j]*inv_sample_size;
     }
 
     fclose(fp);
@@ -591,17 +553,17 @@ int main(int argc, char* argv[]) {
     generatehuffmanCodesBitified(huffmanRoot,                            // Recursively traverse the tree, generate the huffman code for every leaf's symbol,
                                  asciiToHuffman);                        // and populate the encoding table
                                                                 
-    printSymbolEncodingBitified(symbols,                                 // Print the huffman encoding of every symbol in the alphabet
+    /*printSymbolEncodingBitified(symbols,                                 // Print the huffman encoding of every symbol in the alphabet
                                 symbol_count, 
                                 asciiToHuffman);
+    */
 
     compressed_size = generateEncodedFileBitified(original_filename,     // Perform huffman encoding on the sample text and, 
                                                   compressed_filename,   // store the result in a .huf file
                                                   asciiToHuffman);  
 
     /******************************** Decoding ********************************/
-    treeDecodingBitByBit(compressed_filename, decompressed_filename, huffmanRoot);  // Decode the compressed file in a bit-by-bit manner
-    //exit(0);    
+    treeDecodingBitByBit(compressed_filename, decompressed_filename, huffmanRoot);  // Decode the compressed file in a bit-by-bit manner  
 
     unsigned code_max_bits = 0;
     code_max_bits = maxTreeDepth(huffmanRoot);
@@ -610,20 +572,13 @@ int main(int argc, char* argv[]) {
 
     lutDecoding(compressed_filename, decompressed_filename, all_luts, code_max_bits);
 
-    //testing
-    for(int t = 0; t < 2; t++){
-        for(int g = 0; g < 2; g++){
-            printf("look up table from all_luts[%d][%d] vals: %c and %d\n", t, g, all_luts[t][g].symbol, all_luts[t][g].code_length);
-        }
-    }
-
     lutFreeAll(all_luts, &tables_needed);
     freeHuffmanTree(huffmanRoot);
 
     /******************************** Prints Statements ********************************/
-    printf("Sample Size: %d bits\n", sample_size*8);
-    printf("Symbol Count: %d\n", symbol_count);
-    printf("Compressed Size: %d bits\n", compressed_size);
+    // printf("Sample Size: %d bits\n", sample_size*8);
+    // printf("Symbol Count: %d\n", symbol_count);
+    // printf("Compressed Size: %d bits\n", compressed_size);
 
     return 0;
 }

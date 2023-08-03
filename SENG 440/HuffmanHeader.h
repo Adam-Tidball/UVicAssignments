@@ -131,8 +131,9 @@ minHeap_t* initMinHeap(unsigned char alph[], float prob[], int size){
     // then there are n-1 internal nodes for Huffman Coding, for a total of 2n - 1 nodes for a tree
     int numLeaves = size;
     minHeap_t* minHeap = createMinHeap(2*numLeaves - 1);
- 
-    for (int i = 0; i < size; i++){
+    
+    int i;
+    for (i = 0; i < size; i++){
         minHeap->treeArray[i] = allocateNewNode(alph[i], prob[i]);
     }
  
@@ -190,7 +191,8 @@ void printArr(int arr[], int n){
 int symbolIndex(unsigned char* symbols, int symbol_count, unsigned char symbol){
     // If a symbol exists in symbols, return its index
     // Otherwise return -1
-    for (int i = 0; i < symbol_count; i++){
+    int i;
+    for (i = 0; i < symbol_count; i++){
             if (symbols[i] == symbol){
                 return i;
             }
